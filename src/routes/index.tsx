@@ -55,37 +55,38 @@ function Index() {
               fill="none"
             >
               <path
-                d="M275 64l3.5 10 9 3.5-9.5 3.2-4 9.8-3-9.6-9.5-3.8 9.8-3.3L275 64Z"
-                stroke="var(--swag-orange)"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                d="M273 55c5 1 8 11 12 14 4 2 15-1 17 4 2 6-8 11-10 15-1 5 3 14-2 17-5 3-12-6-17-7-5 0-12 7-16 3-4-5 2-13 2-18-1-5-9-11-6-15 4-4 13 1 18 0 5-1 10-11 15-10Z"
+                fill="var(--swag-orange)"
+                opacity="0.88"
               />
               <path
-                d="M63 239c-8-7-17 3-11 11 4 6 12 10 18 14 4-7 10-15 10-22-1-8-12-9-17-3Z"
-                stroke="var(--swag-pink)"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M62 122c13-7 27-9 40-6 7 1 12 4 18 3"
+                d="M61 119c6-15 25-23 40-17 17 6 23 27 14 41-8 13-29 16-40 5-9-9-6-25 4-31 8-5 20-1 21 8 1 7-7 13-13 10"
                 stroke="var(--swag-blue)"
-                strokeWidth="1.8"
+                strokeWidth="9"
                 strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.76"
               />
               <path
-                d="M269 254c7 2 13 1 19-3"
-                stroke="var(--swag-green)"
-                strokeWidth="2"
+                d="M291 154c-9 2-13 9-7 15 6 5 16-4 21 1 5 6-8 12-5 20"
+                stroke="var(--swag-pink)"
+                strokeWidth="8"
                 strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.8"
               />
-              <circle cx="296" cy="157" r="2.7" fill="var(--swag-green)" />
               <path
-                d="M104 291c5-3 9-3 13 0 4 2 8 2 12-1"
-                stroke="var(--swag-navy)"
-                strokeWidth="1.4"
+                d="M276 258c5-3 9 3 13 2 5-1 7-8 12-6 5 3 1 10 3 14 2 5 10 7 8 12-2 6-11 3-16 5-5 2-6 11-12 10-6-1-5-10-9-13-4-4-13-2-14-8-1-6 9-10 15-16Z"
+                fill="var(--swag-green)"
+                opacity="0.82"
+              />
+              <path
+                d="M62 267c7-7 13 8 20 1 7-8 13 8 20 0 6-6 12 4 18 2"
+                stroke="var(--swag-blue)"
+                strokeWidth="7"
                 strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.68"
               />
             </svg>
             <img
