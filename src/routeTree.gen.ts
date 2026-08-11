@@ -15,6 +15,7 @@ import { Route as MembersRouteImport } from './routes/members'
 import { Route as PeerMentorRouteImport } from './routes/peer-mentor'
 import { Route as WhatIsSwagRouteImport } from './routes/what-is-swag'
 import { Route as FormIndexRouteImport } from './routes/form/index'
+import { Route as FormBookingRouteImport } from './routes/form/booking'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const FormIndexRoute = FormIndexRouteImport.update({
   path: '/form/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FormBookingRoute = FormBookingRouteImport.update({
+  id: '/form/booking',
+  path: '/form/booking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
   '/what-is-swag': typeof WhatIsSwagRoute
+  '/form/booking': typeof FormBookingRoute
   '/form/': typeof FormIndexRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
   '/what-is-swag': typeof WhatIsSwagRoute
+  '/form/booking': typeof FormBookingRoute
   '/form': typeof FormIndexRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
   '/what-is-swag': typeof WhatIsSwagRoute
+  '/form/booking': typeof FormBookingRoute
   '/form/': typeof FormIndexRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/members'
     | '/peer-mentor'
     | '/what-is-swag'
+    | '/form/booking'
     | '/form/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/members'
     | '/peer-mentor'
     | '/what-is-swag'
+    | '/form/booking'
     | '/form'
   id:
     | '__root__'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/members'
     | '/peer-mentor'
     | '/what-is-swag'
+    | '/form/booking'
     | '/form/'
   fileRoutesById: FileRoutesById
 }
@@ -105,6 +117,7 @@ export interface RootRouteChildren {
   MembersRoute: typeof MembersRoute
   PeerMentorRoute: typeof PeerMentorRoute
   WhatIsSwagRoute: typeof WhatIsSwagRoute
+  FormBookingRoute: typeof FormBookingRoute
   FormIndexRoute: typeof FormIndexRoute
 }
 
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FormIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/form/booking': {
+      id: '/form/booking'
+      path: '/form/booking'
+      fullPath: '/form/booking'
+      preLoaderRoute: typeof FormBookingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -161,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   MembersRoute: MembersRoute,
   PeerMentorRoute: PeerMentorRoute,
   WhatIsSwagRoute: WhatIsSwagRoute,
+  FormBookingRoute: FormBookingRoute,
   FormIndexRoute: FormIndexRoute,
 }
 export const routeTree = rootRouteImport
