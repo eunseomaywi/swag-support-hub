@@ -9,7 +9,7 @@ export const Route = createFileRoute("/members")({
       { title: "Meet the SWAG Members" },
       {
         name: "description",
-        content: "The students behind SWAG — our welfare action group members and their roles.",
+        content: "The students behind SWAG — our welfare awareness group members and their roles.",
       },
       { property: "og:title", content: "Meet the SWAG Members" },
       { property: "og:description", content: "The students behind SWAG and their roles." },

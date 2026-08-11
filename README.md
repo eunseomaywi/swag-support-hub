@@ -1,6 +1,6 @@
 # SWAG Support Hub
 
-첨부한 두 이미지를 기준으로 NLCS Jeju의 SWAG(Student Welfare Action Group)를 위한 실제 사용 가능한 웹사이트를 제작해 주세요.
+첨부한 두 이미지를 기준으로 NLCS Jeju의 SWAG(Student Welfare Awareness Group)를 위한 실제 사용 가능한 웹사이트를 제작해 주세요.
 
 첫 번째 첨부 이미지는 SWAG의 실제 공식 로고이며, 로고를 새로 그리거나 변형하지 말고 이 이미지 파일 자체를 웹사이트의 실제 로고 asset으로 사용해 주세요.
 
@@ -25,7 +25,7 @@ Desktop에서는 로고가 왼쪽, navigation이 오른쪽에 있는 매우 간�
 
 HOME 페이지는 첨부 UI의 HOME 화면을 기준으로 제작합니다. 큰 “Welcome to SWAG” hero title과 SWAG를 소개하는 짧은 문장, Learn More와 Get Involved 버튼을 배치합니다. 오른쪽에는 첨부된 SWAG 브랜드 스타일과 어울리는 friendly hand-drawn illustration 영역을 만듭니다. 가능하면 로고의 visual language를 활용하되 실제 로고 자체를 임의로 변형하지 마세요. 페이지 첫 화면은 넓고 여유 있게 구성하고 정보가 너무 많지 않도록 합니다.
 
-WHAT IS SWAG? 페이지에서는 “What is SWAG?”를 큰 제목으로 보여주고 SWAG가 Student Welfare Action Group임을 설명합니다. SWAG가 student-led initiative이며 school community의 wellbeing, inclusivity, support를 위한 그룹이라는 짧은 설명을 제공합니다.
+WHAT IS SWAG? 페이지에서는 “What is SWAG?”를 큰 제목으로 보여주고 SWAG가 Student Welfare Awareness Group임을 설명합니다. SWAG가 student-led initiative이며 school community의 wellbeing, inclusivity, support를 위한 그룹이라는 짧은 설명을 제공합니다.
 
 그 아래에는 다음 세 가지 핵심 영역을 카드로 보여주세요.
 

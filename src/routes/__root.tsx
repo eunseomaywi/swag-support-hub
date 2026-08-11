@@ -79,14 +79,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SWAG — Student Welfare Action Group, NLCS Jeju" },
+      { title: "SWAG — Student Welfare Awareness Group, NLCS Jeju" },
       {
         name: "description",
         content:
           "SWAG is a student-led group at NLCS Jeju supporting wellbeing, inclusivity and peer support.",
       },
       { name: "author", content: "SWAG" },
-      { property: "og:title", content: "SWAG — Student Welfare Action Group" },
+      { property: "og:title", content: "SWAG — Student Welfare Awareness Group" },
       {
         property: "og:description",
         content: "Student-led wellbeing, peer mentoring and support at NLCS Jeju.",

@@ -4,7 +4,7 @@ import { SwagLinkButton } from "@/components/SwagButton";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SWAG — Student Welfare Action Group, NLCS Jeju" },
+      { title: "SWAG — Student Welfare Awareness Group, NLCS Jeju" },
       {
         name: "description",
         content:
@@ -47,7 +47,10 @@ function Index() {
           </div>
         </div>
         <div className="flex justify-center" aria-label="SWAG logo with hand-drawn decorations">
-          <div className="relative flex aspect-square w-full max-w-sm items-center justify-center">
+          <div
+            className="relative flex aspect-square w-full max-w-sm items-center justify-center"
+            style={{ width: "100%", maxWidth: "24rem", aspectRatio: "1 / 1" }}
+          >
             <svg
               aria-hidden="true"
               viewBox="0 0 360 360"
@@ -91,10 +94,13 @@ function Index() {
             </svg>
             <img
               src="/swag_logo.png"
-              alt="SWAG — Student Welfare Action Group"
+              alt="SWAG — Student Welfare Awareness Group"
               width={500}
               height={499}
+              loading="eager"
+              decoding="sync"
               className="relative z-10 h-auto w-[36%] object-contain"
+              style={{ width: "36%", height: "auto", aspectRatio: "500 / 499" }}
             />
           </div>
         </div>

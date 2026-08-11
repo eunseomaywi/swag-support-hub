@@ -26,7 +26,10 @@ export function SiteHeader() {
             alt="SWAG logo"
             width={500}
             height={499}
+            loading="eager"
+            decoding="sync"
             className="h-10 w-auto shrink-0 object-contain"
+            style={{ width: "auto", height: "40px", aspectRatio: "500 / 499" }}
           />
         </Link>
 

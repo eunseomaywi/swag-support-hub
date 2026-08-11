@@ -6,11 +6,11 @@ import { FeatureCard } from "@/components/cards";
 export const Route = createFileRoute("/what-is-swag")({
   head: () => ({
     meta: [
-      { title: "What is SWAG? — Student Welfare Action Group" },
+      { title: "What is SWAG? — Student Welfare Awareness Group" },
       {
         name: "description",
         content:
-          "SWAG (Student Welfare Action Group) is a student-led initiative supporting wellbeing, inclusivity and support within our school community.",
+          "SWAG (Student Welfare Awareness Group) is a student-led initiative supporting wellbeing, inclusivity and support within our school community.",
       },
       { property: "og:title", content: "What is SWAG?" },
       {
@@ -26,7 +26,7 @@ function WhatIsSwag() {
   return (
     <PageSection
       title="What is SWAG?"
-      intro="SWAG (Student Welfare Action Group) is a student-led initiative supporting wellbeing, inclusivity and support within our school community."
+      intro="SWAG (Student Welfare Awareness Group) is a student-led initiative supporting wellbeing, inclusivity and support within our school community."
     >
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <FeatureCard
