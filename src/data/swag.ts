@@ -33,7 +33,7 @@ export type Mentor = {
   accent?: Accent;
 };
 
-export const mentors: Mentor[] = Array.from({ length: 4 }, (_, i) => ({
+export const peerMentors: Mentor[] = Array.from({ length: 4 }, (_, i) => ({
   id: `mentor-${i + 1}`,
   name: "Name",
   year: "Year",

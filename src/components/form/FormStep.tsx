@@ -21,9 +21,7 @@ export function StepProgress({
         {Array.from({ length: total }, (_, i) => (
           <span
             key={i}
-            className={`h-1.5 flex-1 rounded-full ${
-              i < step ? "bg-swag-blue" : "bg-border"
-            }`}
+            className={`h-1.5 flex-1 rounded-full ${i < step ? "bg-swag-blue" : "bg-border"}`}
           />
         ))}
       </div>

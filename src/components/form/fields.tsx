@@ -40,7 +40,11 @@ export function TextField({
   hint,
   className,
   ...props
-}: ComponentProps<"input"> & { label: string; error?: string | undefined; hint?: string | undefined }) {
+}: ComponentProps<"input"> & {
+  label: string;
+  error?: string | undefined;
+  hint?: string | undefined;
+}) {
   const id = useId();
   return (
     <FieldShell label={label} htmlFor={id} error={error} hint={hint}>
@@ -61,7 +65,11 @@ export function TextAreaField({
   hint,
   className,
   ...props
-}: ComponentProps<"textarea"> & { label: string; error?: string | undefined; hint?: string | undefined }) {
+}: ComponentProps<"textarea"> & {
+  label: string;
+  error?: string | undefined;
+  hint?: string | undefined;
+}) {
   const id = useId();
   return (
     <FieldShell label={label} htmlFor={id} error={error} hint={hint}>
@@ -111,10 +119,7 @@ export function SelectField({
   );
 }
 
-export function CheckboxField({
-  label,
-  ...props
-}: ComponentProps<"input"> & { label: string }) {
+export function CheckboxField({ label, ...props }: ComponentProps<"input"> & { label: string }) {
   const id = useId();
   return (
     <div className="flex items-center gap-2">
@@ -137,9 +142,7 @@ export function ReviewList({ items }: { items: { label: string; value: string }[
       {items.map((item) => (
         <div key={item.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
           <dt className="text-sm font-semibold text-swag-navy">{item.label}</dt>
-          <dd className="min-w-0 break-words text-sm text-muted-foreground">
-            {item.value || "—"}
-          </dd>
+          <dd className="min-w-0 break-words text-sm text-muted-foreground">{item.value || "—"}</dd>
         </div>
       ))}
     </dl>

@@ -152,18 +152,10 @@ export function ActivityCard({
 }) {
   return (
     <article
-      className={cn(
-        "paper-card overflow-hidden hover:-translate-y-0.5",
-        accentBorder[accent],
-      )}
+      className={cn("paper-card overflow-hidden hover:-translate-y-0.5", accentBorder[accent])}
     >
       {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={title}
-          loading="lazy"
-          className="h-40 w-full object-cover"
-        />
+        <img src={imageUrl} alt={title} loading="lazy" className="h-40 w-full object-cover" />
       ) : (
         <div
           className="flex h-40 w-full items-center justify-center bg-muted text-muted-foreground"

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Heart, Smile, Sparkles } from "lucide-react";
 import { SwagLinkButton } from "@/components/SwagButton";
-import heroIllustration from "@/assets/hero-student.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,7 +29,13 @@ function Index() {
           <h1 className="text-4xl font-bold leading-tight text-swag-navy sm:text-5xl">
             Welcome to
             <br />
-            <span className="text-swag-blue">SWAG!</span>
+            <span className="relative inline-block text-swag-navy">
+              SWAG!
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-1 left-1 h-1 w-[92%] -rotate-1 rounded-full bg-swag-blue/55"
+              />
+            </span>
           </h1>
           <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">
             SWAG is here to support your wellbeing and help you thrive at school.
@@ -41,14 +47,47 @@ function Index() {
             </SwagLinkButton>
           </div>
         </div>
-        <div className="flex justify-center">
-          <img
-            src={heroIllustration}
-            alt="Illustration of a student waving with colourful painted handprints"
-            width={900}
-            height={900}
-            className="w-full max-w-sm"
-          />
+        <div className="flex justify-center" aria-label="SWAG logo with hand-drawn decorations">
+          <div className="relative flex aspect-square w-full max-w-sm items-center justify-center">
+            <span
+              aria-hidden="true"
+              className="absolute inset-[12%] rotate-2 rounded-[46%_54%_48%_52%] border border-swag-blue/25"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute inset-[18%_8%_10%_18%] -rotate-3 rounded-[54%_46%_52%_48%] border border-swag-green/25"
+            />
+            <Sparkles
+              aria-hidden="true"
+              className="absolute right-[12%] top-[16%] h-7 w-7 rotate-12 text-swag-orange"
+              strokeWidth={1.6}
+            />
+            <Heart
+              aria-hidden="true"
+              className="absolute bottom-[18%] left-[12%] h-6 w-6 -rotate-12 text-swag-pink"
+              strokeWidth={1.6}
+            />
+            <Smile
+              aria-hidden="true"
+              className="absolute bottom-[13%] right-[17%] h-6 w-6 rotate-6 text-swag-green"
+              strokeWidth={1.5}
+            />
+            <span
+              aria-hidden="true"
+              className="absolute left-[9%] top-[28%] h-px w-10 -rotate-12 bg-swag-blue/55"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute right-[7%] top-1/2 h-px w-12 rotate-12 bg-swag-purple/45"
+            />
+            <img
+              src="/favicon.png"
+              alt="SWAG — Student Welfare Action Group"
+              width={320}
+              height={320}
+              className="relative z-10 h-auto w-[36%] object-contain"
+            />
+          </div>
         </div>
       </div>
     </main>

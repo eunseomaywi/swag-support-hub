@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
-import logoAsset from "@/assets/swag-logo.png.asset.json";
 
 const NAV = [
   { to: "/", label: "Home", exact: true },
@@ -21,15 +20,14 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6">
-        <Link to="/" className="flex min-w-0 items-center gap-2" aria-label="SWAG home">
+        <Link to="/" className="flex min-w-0 items-center" aria-label="SWAG home">
           <img
-            src={logoAsset.url}
+            src="/favicon.png"
             alt="SWAG logo"
             width={40}
             height={40}
             className="h-10 w-10 shrink-0 object-contain"
           />
-          <span className="truncate font-display text-lg font-bold text-swag-navy">SWAG</span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Main">

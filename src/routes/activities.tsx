@@ -13,7 +13,10 @@ export const Route = createFileRoute("/activities")({
           "Wellbeing Week, awareness campaigns and peer support — the activities SWAG runs across the school year.",
       },
       { property: "og:title", content: "Our Activities — SWAG" },
-      { property: "og:description", content: "Wellbeing Week, awareness campaigns and peer support." },
+      {
+        property: "og:description",
+        content: "Wellbeing Week, awareness campaigns and peer support.",
+      },
     ],
   }),
   component: Activities,

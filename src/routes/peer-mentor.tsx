@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Heart, Lock, Sparkles, Users } from "lucide-react";
 import { PageSection } from "@/components/PageSection";
 import { MentorCard, MiniFeature } from "@/components/cards";
-import { mentors } from "@/data/swag";
+import { peerMentors } from "@/data/swag";
 
 export const Route = createFileRoute("/peer-mentor")({
   head: () => ({
@@ -38,7 +38,7 @@ function PeerMentor() {
 
       <h2 className="mt-14 text-2xl font-bold text-swag-navy">Meet the Peer Mentors</h2>
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {mentors.map((m) => (
+        {peerMentors.map((m) => (
           <MentorCard
             key={m.id}
             name={m.name}
