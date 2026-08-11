@@ -10,33 +10,128 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivitiesRouteImport } from './routes/activities'
+import { Route as MembersRouteImport } from './routes/members'
+import { Route as PeerMentorRouteImport } from './routes/peer-mentor'
+import { Route as WhatIsSwagRouteImport } from './routes/what-is-swag'
+import { Route as FormIndexRouteImport } from './routes/form/index'
+import { Route as FormBookingRouteImport } from './routes/form/booking'
+import { Route as FormConcernRouteImport } from './routes/form/concern'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivitiesRoute = ActivitiesRouteImport.update({
+  id: '/activities',
+  path: '/activities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MembersRoute = MembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerMentorRoute = PeerMentorRouteImport.update({
+  id: '/peer-mentor',
+  path: '/peer-mentor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WhatIsSwagRoute = WhatIsSwagRouteImport.update({
+  id: '/what-is-swag',
+  path: '/what-is-swag',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormIndexRoute = FormIndexRouteImport.update({
+  id: '/form/',
+  path: '/form/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormBookingRoute = FormBookingRouteImport.update({
+  id: '/form/booking',
+  path: '/form/booking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormConcernRoute = FormConcernRouteImport.update({
+  id: '/form/concern',
+  path: '/form/concern',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activities': typeof ActivitiesRoute
+  '/members': typeof MembersRoute
+  '/peer-mentor': typeof PeerMentorRoute
+  '/what-is-swag': typeof WhatIsSwagRoute
+  '/form/booking': typeof FormBookingRoute
+  '/form/concern': typeof FormConcernRoute
+  '/form/': typeof FormIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activities': typeof ActivitiesRoute
+  '/members': typeof MembersRoute
+  '/peer-mentor': typeof PeerMentorRoute
+  '/what-is-swag': typeof WhatIsSwagRoute
+  '/form/booking': typeof FormBookingRoute
+  '/form/concern': typeof FormConcernRoute
+  '/form': typeof FormIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activities': typeof ActivitiesRoute
+  '/members': typeof MembersRoute
+  '/peer-mentor': typeof PeerMentorRoute
+  '/what-is-swag': typeof WhatIsSwagRoute
+  '/form/booking': typeof FormBookingRoute
+  '/form/concern': typeof FormConcernRoute
+  '/form/': typeof FormIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/activities'
+    | '/members'
+    | '/peer-mentor'
+    | '/what-is-swag'
+    | '/form/booking'
+    | '/form/concern'
+    | '/form/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/activities'
+    | '/members'
+    | '/peer-mentor'
+    | '/what-is-swag'
+    | '/form/booking'
+    | '/form/concern'
+    | '/form'
+  id:
+    | '__root__'
+    | '/'
+    | '/activities'
+    | '/members'
+    | '/peer-mentor'
+    | '/what-is-swag'
+    | '/form/booking'
+    | '/form/concern'
+    | '/form/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivitiesRoute: typeof ActivitiesRoute
+  MembersRoute: typeof MembersRoute
+  PeerMentorRoute: typeof PeerMentorRoute
+  WhatIsSwagRoute: typeof WhatIsSwagRoute
+  FormBookingRoute: typeof FormBookingRoute
+  FormConcernRoute: typeof FormConcernRoute
+  FormIndexRoute: typeof FormIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +143,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activities': {
+      id: '/activities'
+      path: '/activities'
+      fullPath: '/activities'
+      preLoaderRoute: typeof ActivitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/members': {
+      id: '/members'
+      path: '/members'
+      fullPath: '/members'
+      preLoaderRoute: typeof MembersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-mentor': {
+      id: '/peer-mentor'
+      path: '/peer-mentor'
+      fullPath: '/peer-mentor'
+      preLoaderRoute: typeof PeerMentorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/what-is-swag': {
+      id: '/what-is-swag'
+      path: '/what-is-swag'
+      fullPath: '/what-is-swag'
+      preLoaderRoute: typeof WhatIsSwagRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/form/': {
+      id: '/form/'
+      path: '/form'
+      fullPath: '/form/'
+      preLoaderRoute: typeof FormIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/form/booking': {
+      id: '/form/booking'
+      path: '/form/booking'
+      fullPath: '/form/booking'
+      preLoaderRoute: typeof FormBookingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/form/concern': {
+      id: '/form/concern'
+      path: '/form/concern'
+      fullPath: '/form/concern'
+      preLoaderRoute: typeof FormConcernRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivitiesRoute: ActivitiesRoute,
+  MembersRoute: MembersRoute,
+  PeerMentorRoute: PeerMentorRoute,
+  WhatIsSwagRoute: WhatIsSwagRoute,
+  FormBookingRoute: FormBookingRoute,
+  FormConcernRoute: FormConcernRoute,
+  FormIndexRoute: FormIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
