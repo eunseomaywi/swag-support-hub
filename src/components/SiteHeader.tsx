@@ -22,11 +22,11 @@ export function SiteHeader() {
       <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6">
         <Link to="/" className="flex min-w-0 items-center" aria-label="SWAG home">
           <img
-            src="/favicon.png"
+            src="/swag_logo.png"
             alt="SWAG logo"
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 object-contain"
+            width={500}
+            height={499}
+            className="h-10 w-auto shrink-0 object-contain"
           />
         </Link>
 

@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Heart, Smile, Sparkles } from "lucide-react";
 import { SwagLinkButton } from "@/components/SwagButton";
 
 export const Route = createFileRoute("/")({
@@ -49,42 +48,51 @@ function Index() {
         </div>
         <div className="flex justify-center" aria-label="SWAG logo with hand-drawn decorations">
           <div className="relative flex aspect-square w-full max-w-sm items-center justify-center">
-            <span
+            <svg
               aria-hidden="true"
-              className="absolute inset-[12%] rotate-2 rounded-[46%_54%_48%_52%] border border-swag-blue/25"
-            />
-            <span
-              aria-hidden="true"
-              className="absolute inset-[18%_8%_10%_18%] -rotate-3 rounded-[54%_46%_52%_48%] border border-swag-green/25"
-            />
-            <Sparkles
-              aria-hidden="true"
-              className="absolute right-[12%] top-[16%] h-7 w-7 rotate-12 text-swag-orange"
-              strokeWidth={1.6}
-            />
-            <Heart
-              aria-hidden="true"
-              className="absolute bottom-[18%] left-[12%] h-6 w-6 -rotate-12 text-swag-pink"
-              strokeWidth={1.6}
-            />
-            <Smile
-              aria-hidden="true"
-              className="absolute bottom-[13%] right-[17%] h-6 w-6 rotate-6 text-swag-green"
-              strokeWidth={1.5}
-            />
-            <span
-              aria-hidden="true"
-              className="absolute left-[9%] top-[28%] h-px w-10 -rotate-12 bg-swag-blue/55"
-            />
-            <span
-              aria-hidden="true"
-              className="absolute right-[7%] top-1/2 h-px w-12 rotate-12 bg-swag-purple/45"
-            />
+              viewBox="0 0 360 360"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              fill="none"
+            >
+              <path
+                d="M275 64l3.5 10 9 3.5-9.5 3.2-4 9.8-3-9.6-9.5-3.8 9.8-3.3L275 64Z"
+                stroke="var(--swag-orange)"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M63 239c-8-7-17 3-11 11 4 6 12 10 18 14 4-7 10-15 10-22-1-8-12-9-17-3Z"
+                stroke="var(--swag-pink)"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M62 122c13-7 27-9 40-6 7 1 12 4 18 3"
+                stroke="var(--swag-blue)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M269 254c7 2 13 1 19-3"
+                stroke="var(--swag-green)"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <circle cx="296" cy="157" r="2.7" fill="var(--swag-green)" />
+              <path
+                d="M104 291c5-3 9-3 13 0 4 2 8 2 12-1"
+                stroke="var(--swag-navy)"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
             <img
-              src="/favicon.png"
+              src="/swag_logo.png"
               alt="SWAG — Student Welfare Action Group"
-              width={320}
-              height={320}
+              width={500}
+              height={499}
               className="relative z-10 h-auto w-[36%] object-contain"
             />
           </div>
