@@ -14,8 +14,8 @@ function FieldShell({
 }: {
   label: string;
   htmlFor: string;
-  error?: string;
-  hint?: string;
+  error?: string | undefined;
+  hint?: string | undefined;
   children: ReactNode;
 }) {
   return (
@@ -40,7 +40,7 @@ export function TextField({
   hint,
   className,
   ...props
-}: ComponentProps<"input"> & { label: string; error?: string; hint?: string }) {
+}: ComponentProps<"input"> & { label: string; error?: string | undefined; hint?: string | undefined }) {
   const id = useId();
   return (
     <FieldShell label={label} htmlFor={id} error={error} hint={hint}>
@@ -61,7 +61,7 @@ export function TextAreaField({
   hint,
   className,
   ...props
-}: ComponentProps<"textarea"> & { label: string; error?: string; hint?: string }) {
+}: ComponentProps<"textarea"> & { label: string; error?: string | undefined; hint?: string | undefined }) {
   const id = useId();
   return (
     <FieldShell label={label} htmlFor={id} error={error} hint={hint}>
@@ -86,8 +86,8 @@ export function SelectField({
   ...props
 }: ComponentProps<"select"> & {
   label: string;
-  error?: string;
-  hint?: string;
+  error?: string | undefined;
+  hint?: string | undefined;
   options: string[];
 }) {
   const id = useId();

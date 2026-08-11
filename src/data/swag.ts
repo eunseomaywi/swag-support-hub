@@ -21,7 +21,7 @@ export const members: Member[] = Array.from({ length: 10 }, (_, i) => ({
   name: "Name",
   role: "Role",
   year: "Year",
-  accent: memberAccents[i % memberAccents.length],
+  accent: memberAccents[i % memberAccents.length]!,
 }));
 
 export type Mentor = {
@@ -38,7 +38,7 @@ export const mentors: Mentor[] = Array.from({ length: 4 }, (_, i) => ({
   name: "Name",
   year: "Year",
   intro: "Short intro...",
-  accent: memberAccents[i % memberAccents.length],
+  accent: memberAccents[i % memberAccents.length]!,
 }));
 
 export type Activity = {
