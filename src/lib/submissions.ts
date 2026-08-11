@@ -1,7 +1,4 @@
-/**
- * Single place where form submissions leave the app.
- * Today it only logs; swap the body for a Lovable Cloud insert later.
- */
+import { getSupabaseClient } from "@/lib/supabase";
 
 export type BookingSubmission = {
   name: string;
@@ -24,13 +21,35 @@ export type ConcernSubmission = {
 };
 
 export async function submitBooking(data: BookingSubmission): Promise<void> {
-  console.info("[SWAG] booking submission", data);
-  await new Promise((r) => setTimeout(r, 400));
+  const { error } = await getSupabaseClient()
+    .from("peer_mentor_bookings")
+    .insert({
+      name: data.name.trim(),
+      year_group: data.yearGroup,
+      email: data.email.trim(),
+      preferred_date: data.preferredDate,
+      preferred_time: data.preferredTime,
+      topic: data.topic,
+      additional_info: data.additionalInfo.trim() || null,
+    });
+
+  if (error) throw new Error("Booking submission failed.");
 }
 
 export async function submitConcern(data: ConcernSubmission): Promise<void> {
-  console.info("[SWAG] concern submission", data);
-  await new Promise((r) => setTimeout(r, 400));
+  const { error } = await getSupabaseClient()
+    .from("concerns")
+    .insert({
+      is_anonymous: data.anonymous,
+      name: data.anonymous ? null : data.name.trim(),
+      year_group: data.yearGroup,
+      email: data.email.trim() || null,
+      category: data.about,
+      feeling: data.feeling,
+      details: data.details.trim(),
+    });
+
+  if (error) throw new Error("Concern submission failed.");
 }
 
 export const YEAR_GROUPS = [

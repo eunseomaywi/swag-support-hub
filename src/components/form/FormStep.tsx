@@ -38,6 +38,7 @@ export function FormStep({
   onNext,
   nextLabel = "Next",
   submitting,
+  submitError,
 }: {
   step: number;
   total: number;
@@ -47,6 +48,7 @@ export function FormStep({
   onNext: () => void;
   nextLabel?: string;
   submitting?: boolean;
+  submitError?: string | undefined;
 }) {
   return (
     <form
@@ -60,9 +62,14 @@ export function FormStep({
       <StepProgress step={step} total={total} label={title} />
       <h2 className="text-xl font-bold text-swag-navy">{title}</h2>
       <div className="mt-6 space-y-5">{children}</div>
+      {submitError && (
+        <p className="mt-4 text-xs font-medium text-destructive" role="alert">
+          {submitError}
+        </p>
+      )}
       <div className="mt-8 flex justify-between gap-3">
         {onBack ? (
-          <SwagButton type="button" variant="secondary" onClick={onBack}>
+          <SwagButton type="button" variant="secondary" onClick={onBack} disabled={submitting}>
             Back
           </SwagButton>
         ) : (

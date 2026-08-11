@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PageSection } from "@/components/PageSection";
 import { FormStep, SubmittedPanel } from "@/components/form/FormStep";
 import {
@@ -52,6 +52,8 @@ function ConcernForm() {
   const [data, setData] = useState<ConcernSubmission>(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [submitError, setSubmitError] = useState("");
   const [done, setDone] = useState(false);
 
   function validate(current: number) {
@@ -77,16 +79,22 @@ function ConcernForm() {
   }
 
   async function next() {
+    if (submittingRef.current) return;
     if (!validate(step)) return;
     if (step < TOTAL) {
       setStep(step + 1);
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
+    setSubmitError("");
     try {
       await submitConcern(data);
       setDone(true);
+    } catch {
+      setSubmitError("We couldn't submit your concern. Please try again.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -183,6 +191,7 @@ function ConcernForm() {
               onNext={next}
               nextLabel="Submit"
               submitting={submitting}
+              submitError={submitError}
             >
               <p className="text-sm text-muted-foreground">
                 Please review your details before submitting.

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PageSection } from "@/components/PageSection";
 import { FormStep, SubmittedPanel } from "@/components/form/FormStep";
 import { ReviewList, SelectField, TextAreaField, TextField } from "@/components/form/fields";
@@ -43,6 +43,8 @@ function BookingForm() {
   const [data, setData] = useState<BookingSubmission>(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [submitError, setSubmitError] = useState("");
   const [done, setDone] = useState(false);
 
   const set = (key: keyof BookingSubmission) => (value: string) =>
@@ -65,16 +67,22 @@ function BookingForm() {
   }
 
   async function next() {
+    if (submittingRef.current) return;
     if (!validate(step)) return;
     if (step < TOTAL) {
       setStep(step + 1);
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
+    setSubmitError("");
     try {
       await submitBooking(data);
       setDone(true);
+    } catch {
+      setSubmitError("We couldn't submit your booking. Please try again.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -163,6 +171,7 @@ function BookingForm() {
               onNext={next}
               nextLabel="Submit"
               submitting={submitting}
+              submitError={submitError}
             >
               <p className="text-sm text-muted-foreground">
                 Please review your details before submitting.
