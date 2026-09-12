@@ -17,7 +17,11 @@ The following build-time variables must be present before `npm run build`:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_TURNSTILE_SITE_KEY`
 
-Keep `.env.local` private. If Cloudflare Workers Builds is enabled later, configure the same three names as **Build variables**; Worker runtime variables are not a substitute for Vite build-time injection.
+Keep `.env.local` private. Cloudflare Workers Builds is connected, but its build environment did
+not provide these variables during the Phase 4 release. Configure the same three names as **Build
+variables** before relying on a Git-triggered release. Worker runtime variables are not a substitute
+for Vite build-time injection. Until then, build from a verified local production environment and
+deploy the resulting bundle manually.
 
 The existing Worker also requires these encrypted runtime secrets:
 
