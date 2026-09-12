@@ -51,6 +51,7 @@ const child = spawn("npm", ["run", "dev", "--", ...process.argv.slice(2)], {
     VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
     TURNSTILE_SECRET: "1x0000000000000000000000000000000AA",
     TURNSTILE_HOSTNAMES: "localhost,127.0.0.1",
+    PEER_INTAKE_ENABLED: "true",
     PEER_INTAKE_GATEWAY_SECRET: gatewaySecret,
   },
   stdio: "inherit",

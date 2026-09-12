@@ -25,6 +25,10 @@ The existing Worker also requires these encrypted runtime secrets:
 - `TURNSTILE_SECRET`
 - `TURNSTILE_HOSTNAMES`
 
+Public Peer Support intake is closed by default. Set the Worker runtime value
+`PEER_INTAKE_ENABLED=true` only after approved operational accounts and a monitoring/handover
+process are ready. Local development sets this value in `scripts/dev-local.mjs`.
+
 Never log their values. The gateway secret must match the SHA-256 verifier in the peer-support migration. Rotate it through a follow-up migration and Worker secret update together.
 
 ## Local verification

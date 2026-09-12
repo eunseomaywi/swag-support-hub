@@ -8,6 +8,7 @@ type ServerEntry = {
 };
 
 type WorkerEnv = {
+  PEER_INTAKE_ENABLED?: string;
   PEER_INTAKE_GATEWAY_SECRET?: string;
   TURNSTILE_SECRET?: string;
   TURNSTILE_HOSTNAMES?: string;
@@ -119,6 +120,12 @@ async function verifyTurnstile(
 async function handlePeerIntake(request: Request, env: WorkerEnv): Promise<Response> {
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { ...PRIVATE_HEADERS, Allow: "POST" } });
+  }
+  if (envValue(env, "PEER_INTAKE_ENABLED") !== "true") {
+    return jsonPrivate(
+      { error: "Peer Support requests are not open while staff monitoring is being prepared." },
+      503,
+    );
   }
   if (!allowedOrigin(request))
     return jsonPrivate({ error: "Request origin was not accepted." }, 403);
@@ -255,6 +262,17 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      if (url.pathname === "/api/peer-support/status") {
+        if (request.method !== "GET") {
+          return new Response(null, {
+            status: 405,
+            headers: { ...PRIVATE_HEADERS, Allow: "GET" },
+          });
+        }
+        return jsonPrivate({
+          enabled: envValue((env ?? {}) as WorkerEnv, "PEER_INTAKE_ENABLED") === "true",
+        });
+      }
       if (url.pathname === "/api/peer-support/submit") {
         return await handlePeerIntake(request, (env ?? {}) as WorkerEnv);
       }

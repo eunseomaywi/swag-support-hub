@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Copy, ExternalLink } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageSection } from "@/components/PageSection";
 import { FormStep } from "@/components/form/FormStep";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
@@ -35,6 +35,7 @@ const empty: BookingSubmission = {
 };
 
 function BookingForm() {
+  const [intakeState, setIntakeState] = useState<"checking" | "enabled" | "disabled">("checking");
   const [step, setStep] = useState(1);
   const [data, setData] = useState<BookingSubmission>(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -49,6 +50,21 @@ function BookingForm() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/peer-support/status", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json()) as { enabled?: boolean };
+        if (active) setIntakeState(response.ok && body.enabled === true ? "enabled" : "disabled");
+      })
+      .catch(() => {
+        if (active) setIntakeState("disabled");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const set = (key: keyof BookingSubmission) => (value: string) =>
     setData((d) => ({ ...d, [key]: value }));
@@ -151,7 +167,34 @@ function BookingForm() {
       title="Peer Support Request"
       intro="Ask for support from a Peer Mentor or SWAG Member. Submitting a request does not confirm a session time."
     >
-      {result ? (
+      {intakeState === "checking" ? (
+        <section className="paper-card mx-auto max-w-2xl border-swag-blue/35 p-6 text-center text-sm text-muted-foreground sm:p-8">
+          Checking whether Peer Support requests are open…
+        </section>
+      ) : intakeState === "disabled" ? (
+        <section
+          className="paper-card mx-auto max-w-2xl border-swag-orange/45 p-6 text-center sm:p-8"
+          aria-live="polite"
+        >
+          <h2 className="text-2xl font-bold text-swag-navy">
+            Peer Support requests are not open yet
+          </h2>
+          <p className="mt-3 leading-relaxed text-muted-foreground">
+            The secure request service is ready for review, but approved staff monitoring is still
+            being set up. Please use another SWAG support option for now.
+          </p>
+          <a
+            href="/form"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-card px-5 text-sm font-semibold text-swag-navy"
+          >
+            View SWAG forms
+          </a>
+          <p className="mt-5 text-sm text-muted-foreground">
+            This online service is not an emergency channel. If someone is in immediate danger,
+            contact emergency services or a trusted adult now.
+          </p>
+        </section>
+      ) : result ? (
         <section
           className="paper-card mx-auto max-w-2xl border-swag-green/45 p-6 sm:p-8"
           aria-live="polite"
