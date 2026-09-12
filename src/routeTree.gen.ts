@@ -11,12 +11,37 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivitiesRouteImport } from './routes/activities'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MembersRouteImport } from './routes/members'
 import { Route as PeerMentorRouteImport } from './routes/peer-mentor'
 import { Route as WhatIsSwagRouteImport } from './routes/what-is-swag'
 import { Route as FormIndexRouteImport } from './routes/form/index'
 import { Route as FormBookingRouteImport } from './routes/form/booking'
 import { Route as FormConcernRouteImport } from './routes/form/concern'
+import { Route as PeerMentorAvailabilityRouteImport } from './routes/peer-mentor_.availability'
+import { Route as PeerMentorCasesRouteImport } from './routes/peer-mentor_.cases'
+import { Route as PeerMentorDashboardRouteImport } from './routes/peer-mentor_.dashboard'
+import { Route as PeerMentorRequestsRouteImport } from './routes/peer-mentor_.requests'
+import { Route as PeerMentorSessionsRouteImport } from './routes/peer-mentor_.sessions'
+import { Route as PeerSupportManageRouteImport } from './routes/peer-support.manage'
+import { Route as SwagAvailabilityRouteImport } from './routes/swag_.availability'
+import { Route as SwagCasesRouteImport } from './routes/swag_.cases'
+import { Route as SwagConcernsRouteImport } from './routes/swag_.concerns'
+import { Route as SwagDashboardRouteImport } from './routes/swag_.dashboard'
+import { Route as SwagEscalationsRouteImport } from './routes/swag_.escalations'
+import { Route as SwagRequestsRouteImport } from './routes/swag_.requests'
+import { Route as SwagSessionsRouteImport } from './routes/swag_.sessions'
+import { Route as TeacherBookingsRouteImport } from './routes/teacher_.bookings'
+import { Route as TeacherConcernsRouteImport } from './routes/teacher_.concerns'
+import { Route as TeacherDashboardRouteImport } from './routes/teacher_.dashboard'
+import { Route as TeacherEscalationsRouteImport } from './routes/teacher_.escalations'
+import { Route as TeacherPeerSupportRouteImport } from './routes/teacher_.peer-support'
+import { Route as PeerMentorCasesRequestIdRouteImport } from './routes/peer-mentor_.cases_.$requestId'
+import { Route as SwagCasesRequestIdRouteImport } from './routes/swag_.cases_.$requestId'
+import { Route as SwagConcernsConcernIdRouteImport } from './routes/swag_.concerns_.$concernId'
+import { Route as SwagEscalationsRequestIdRouteImport } from './routes/swag_.escalations_.$requestId'
+import { Route as TeacherConcernsConcernIdRouteImport } from './routes/teacher_.concerns_.$concernId'
+import { Route as TeacherEscalationsRequestIdRouteImport } from './routes/teacher_.escalations_.$requestId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -26,6 +51,11 @@ const IndexRoute = IndexRouteImport.update({
 const ActivitiesRoute = ActivitiesRouteImport.update({
   id: '/activities',
   path: '/activities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MembersRoute = MembersRouteImport.update({
@@ -58,80 +88,379 @@ const FormConcernRoute = FormConcernRouteImport.update({
   path: '/form/concern',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PeerMentorAvailabilityRoute = PeerMentorAvailabilityRouteImport.update({
+  id: '/peer-mentor_/availability',
+  path: '/peer-mentor/availability',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerMentorCasesRoute = PeerMentorCasesRouteImport.update({
+  id: '/peer-mentor_/cases',
+  path: '/peer-mentor/cases',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerMentorDashboardRoute = PeerMentorDashboardRouteImport.update({
+  id: '/peer-mentor_/dashboard',
+  path: '/peer-mentor/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerMentorRequestsRoute = PeerMentorRequestsRouteImport.update({
+  id: '/peer-mentor_/requests',
+  path: '/peer-mentor/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerMentorSessionsRoute = PeerMentorSessionsRouteImport.update({
+  id: '/peer-mentor_/sessions',
+  path: '/peer-mentor/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerSupportManageRoute = PeerSupportManageRouteImport.update({
+  id: '/peer-support/manage',
+  path: '/peer-support/manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagAvailabilityRoute = SwagAvailabilityRouteImport.update({
+  id: '/swag_/availability',
+  path: '/swag/availability',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagCasesRoute = SwagCasesRouteImport.update({
+  id: '/swag_/cases',
+  path: '/swag/cases',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagConcernsRoute = SwagConcernsRouteImport.update({
+  id: '/swag_/concerns',
+  path: '/swag/concerns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagDashboardRoute = SwagDashboardRouteImport.update({
+  id: '/swag_/dashboard',
+  path: '/swag/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagEscalationsRoute = SwagEscalationsRouteImport.update({
+  id: '/swag_/escalations',
+  path: '/swag/escalations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagRequestsRoute = SwagRequestsRouteImport.update({
+  id: '/swag_/requests',
+  path: '/swag/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagSessionsRoute = SwagSessionsRouteImport.update({
+  id: '/swag_/sessions',
+  path: '/swag/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherBookingsRoute = TeacherBookingsRouteImport.update({
+  id: '/teacher_/bookings',
+  path: '/teacher/bookings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherConcernsRoute = TeacherConcernsRouteImport.update({
+  id: '/teacher_/concerns',
+  path: '/teacher/concerns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherDashboardRoute = TeacherDashboardRouteImport.update({
+  id: '/teacher_/dashboard',
+  path: '/teacher/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherEscalationsRoute = TeacherEscalationsRouteImport.update({
+  id: '/teacher_/escalations',
+  path: '/teacher/escalations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherPeerSupportRoute = TeacherPeerSupportRouteImport.update({
+  id: '/teacher_/peer-support',
+  path: '/teacher/peer-support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeerMentorCasesRequestIdRoute =
+  PeerMentorCasesRequestIdRouteImport.update({
+    id: '/peer-mentor_/cases_/$requestId',
+    path: '/peer-mentor/cases/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const SwagCasesRequestIdRoute = SwagCasesRequestIdRouteImport.update({
+  id: '/swag_/cases_/$requestId',
+  path: '/swag/cases/$requestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagConcernsConcernIdRoute = SwagConcernsConcernIdRouteImport.update({
+  id: '/swag_/concerns_/$concernId',
+  path: '/swag/concerns/$concernId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwagEscalationsRequestIdRoute =
+  SwagEscalationsRequestIdRouteImport.update({
+    id: '/swag_/escalations_/$requestId',
+    path: '/swag/escalations/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TeacherConcernsConcernIdRoute =
+  TeacherConcernsConcernIdRouteImport.update({
+    id: '/teacher_/concerns_/$concernId',
+    path: '/teacher/concerns/$concernId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TeacherEscalationsRequestIdRoute =
+  TeacherEscalationsRequestIdRouteImport.update({
+    id: '/teacher_/escalations_/$requestId',
+    path: '/teacher/escalations/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activities': typeof ActivitiesRoute
+  '/login': typeof LoginRoute
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
   '/what-is-swag': typeof WhatIsSwagRoute
   '/form/booking': typeof FormBookingRoute
   '/form/concern': typeof FormConcernRoute
+  '/peer-mentor/availability': typeof PeerMentorAvailabilityRoute
+  '/peer-mentor/cases': typeof PeerMentorCasesRoute
+  '/peer-mentor/dashboard': typeof PeerMentorDashboardRoute
+  '/peer-mentor/requests': typeof PeerMentorRequestsRoute
+  '/peer-mentor/sessions': typeof PeerMentorSessionsRoute
+  '/peer-support/manage': typeof PeerSupportManageRoute
+  '/swag/availability': typeof SwagAvailabilityRoute
+  '/swag/cases': typeof SwagCasesRoute
+  '/swag/concerns': typeof SwagConcernsRoute
+  '/swag/dashboard': typeof SwagDashboardRoute
+  '/swag/escalations': typeof SwagEscalationsRoute
+  '/swag/requests': typeof SwagRequestsRoute
+  '/swag/sessions': typeof SwagSessionsRoute
+  '/teacher/bookings': typeof TeacherBookingsRoute
+  '/teacher/concerns': typeof TeacherConcernsRoute
+  '/teacher/dashboard': typeof TeacherDashboardRoute
+  '/teacher/escalations': typeof TeacherEscalationsRoute
+  '/teacher/peer-support': typeof TeacherPeerSupportRoute
   '/form/': typeof FormIndexRoute
+  '/peer-mentor/cases/$requestId': typeof PeerMentorCasesRequestIdRoute
+  '/swag/cases/$requestId': typeof SwagCasesRequestIdRoute
+  '/swag/concerns/$concernId': typeof SwagConcernsConcernIdRoute
+  '/swag/escalations/$requestId': typeof SwagEscalationsRequestIdRoute
+  '/teacher/concerns/$concernId': typeof TeacherConcernsConcernIdRoute
+  '/teacher/escalations/$requestId': typeof TeacherEscalationsRequestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activities': typeof ActivitiesRoute
+  '/login': typeof LoginRoute
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
   '/what-is-swag': typeof WhatIsSwagRoute
   '/form/booking': typeof FormBookingRoute
   '/form/concern': typeof FormConcernRoute
+  '/peer-mentor/availability': typeof PeerMentorAvailabilityRoute
+  '/peer-mentor/cases': typeof PeerMentorCasesRoute
+  '/peer-mentor/dashboard': typeof PeerMentorDashboardRoute
+  '/peer-mentor/requests': typeof PeerMentorRequestsRoute
+  '/peer-mentor/sessions': typeof PeerMentorSessionsRoute
+  '/peer-support/manage': typeof PeerSupportManageRoute
+  '/swag/availability': typeof SwagAvailabilityRoute
+  '/swag/cases': typeof SwagCasesRoute
+  '/swag/concerns': typeof SwagConcernsRoute
+  '/swag/dashboard': typeof SwagDashboardRoute
+  '/swag/escalations': typeof SwagEscalationsRoute
+  '/swag/requests': typeof SwagRequestsRoute
+  '/swag/sessions': typeof SwagSessionsRoute
+  '/teacher/bookings': typeof TeacherBookingsRoute
+  '/teacher/concerns': typeof TeacherConcernsRoute
+  '/teacher/dashboard': typeof TeacherDashboardRoute
+  '/teacher/escalations': typeof TeacherEscalationsRoute
+  '/teacher/peer-support': typeof TeacherPeerSupportRoute
   '/form': typeof FormIndexRoute
+  '/peer-mentor/cases/$requestId': typeof PeerMentorCasesRequestIdRoute
+  '/swag/cases/$requestId': typeof SwagCasesRequestIdRoute
+  '/swag/concerns/$concernId': typeof SwagConcernsConcernIdRoute
+  '/swag/escalations/$requestId': typeof SwagEscalationsRequestIdRoute
+  '/teacher/concerns/$concernId': typeof TeacherConcernsConcernIdRoute
+  '/teacher/escalations/$requestId': typeof TeacherEscalationsRequestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activities': typeof ActivitiesRoute
+  '/login': typeof LoginRoute
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
   '/what-is-swag': typeof WhatIsSwagRoute
   '/form/booking': typeof FormBookingRoute
   '/form/concern': typeof FormConcernRoute
+  '/peer-mentor_/availability': typeof PeerMentorAvailabilityRoute
+  '/peer-mentor_/cases': typeof PeerMentorCasesRoute
+  '/peer-mentor_/dashboard': typeof PeerMentorDashboardRoute
+  '/peer-mentor_/requests': typeof PeerMentorRequestsRoute
+  '/peer-mentor_/sessions': typeof PeerMentorSessionsRoute
+  '/peer-support/manage': typeof PeerSupportManageRoute
+  '/swag_/availability': typeof SwagAvailabilityRoute
+  '/swag_/cases': typeof SwagCasesRoute
+  '/swag_/concerns': typeof SwagConcernsRoute
+  '/swag_/dashboard': typeof SwagDashboardRoute
+  '/swag_/escalations': typeof SwagEscalationsRoute
+  '/swag_/requests': typeof SwagRequestsRoute
+  '/swag_/sessions': typeof SwagSessionsRoute
+  '/teacher_/bookings': typeof TeacherBookingsRoute
+  '/teacher_/concerns': typeof TeacherConcernsRoute
+  '/teacher_/dashboard': typeof TeacherDashboardRoute
+  '/teacher_/escalations': typeof TeacherEscalationsRoute
+  '/teacher_/peer-support': typeof TeacherPeerSupportRoute
   '/form/': typeof FormIndexRoute
+  '/peer-mentor_/cases_/$requestId': typeof PeerMentorCasesRequestIdRoute
+  '/swag_/cases_/$requestId': typeof SwagCasesRequestIdRoute
+  '/swag_/concerns_/$concernId': typeof SwagConcernsConcernIdRoute
+  '/swag_/escalations_/$requestId': typeof SwagEscalationsRequestIdRoute
+  '/teacher_/concerns_/$concernId': typeof TeacherConcernsConcernIdRoute
+  '/teacher_/escalations_/$requestId': typeof TeacherEscalationsRequestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/activities'
+    | '/login'
     | '/members'
     | '/peer-mentor'
     | '/what-is-swag'
     | '/form/booking'
     | '/form/concern'
+    | '/peer-mentor/availability'
+    | '/peer-mentor/cases'
+    | '/peer-mentor/dashboard'
+    | '/peer-mentor/requests'
+    | '/peer-mentor/sessions'
+    | '/peer-support/manage'
+    | '/swag/availability'
+    | '/swag/cases'
+    | '/swag/concerns'
+    | '/swag/dashboard'
+    | '/swag/escalations'
+    | '/swag/requests'
+    | '/swag/sessions'
+    | '/teacher/bookings'
+    | '/teacher/concerns'
+    | '/teacher/dashboard'
+    | '/teacher/escalations'
+    | '/teacher/peer-support'
     | '/form/'
+    | '/peer-mentor/cases/$requestId'
+    | '/swag/cases/$requestId'
+    | '/swag/concerns/$concernId'
+    | '/swag/escalations/$requestId'
+    | '/teacher/concerns/$concernId'
+    | '/teacher/escalations/$requestId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/activities'
+    | '/login'
     | '/members'
     | '/peer-mentor'
     | '/what-is-swag'
     | '/form/booking'
     | '/form/concern'
+    | '/peer-mentor/availability'
+    | '/peer-mentor/cases'
+    | '/peer-mentor/dashboard'
+    | '/peer-mentor/requests'
+    | '/peer-mentor/sessions'
+    | '/peer-support/manage'
+    | '/swag/availability'
+    | '/swag/cases'
+    | '/swag/concerns'
+    | '/swag/dashboard'
+    | '/swag/escalations'
+    | '/swag/requests'
+    | '/swag/sessions'
+    | '/teacher/bookings'
+    | '/teacher/concerns'
+    | '/teacher/dashboard'
+    | '/teacher/escalations'
+    | '/teacher/peer-support'
     | '/form'
+    | '/peer-mentor/cases/$requestId'
+    | '/swag/cases/$requestId'
+    | '/swag/concerns/$concernId'
+    | '/swag/escalations/$requestId'
+    | '/teacher/concerns/$concernId'
+    | '/teacher/escalations/$requestId'
   id:
     | '__root__'
     | '/'
     | '/activities'
+    | '/login'
     | '/members'
     | '/peer-mentor'
     | '/what-is-swag'
     | '/form/booking'
     | '/form/concern'
+    | '/peer-mentor_/availability'
+    | '/peer-mentor_/cases'
+    | '/peer-mentor_/dashboard'
+    | '/peer-mentor_/requests'
+    | '/peer-mentor_/sessions'
+    | '/peer-support/manage'
+    | '/swag_/availability'
+    | '/swag_/cases'
+    | '/swag_/concerns'
+    | '/swag_/dashboard'
+    | '/swag_/escalations'
+    | '/swag_/requests'
+    | '/swag_/sessions'
+    | '/teacher_/bookings'
+    | '/teacher_/concerns'
+    | '/teacher_/dashboard'
+    | '/teacher_/escalations'
+    | '/teacher_/peer-support'
     | '/form/'
+    | '/peer-mentor_/cases_/$requestId'
+    | '/swag_/cases_/$requestId'
+    | '/swag_/concerns_/$concernId'
+    | '/swag_/escalations_/$requestId'
+    | '/teacher_/concerns_/$concernId'
+    | '/teacher_/escalations_/$requestId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivitiesRoute: typeof ActivitiesRoute
+  LoginRoute: typeof LoginRoute
   MembersRoute: typeof MembersRoute
   PeerMentorRoute: typeof PeerMentorRoute
   WhatIsSwagRoute: typeof WhatIsSwagRoute
   FormBookingRoute: typeof FormBookingRoute
   FormConcernRoute: typeof FormConcernRoute
+  PeerMentorAvailabilityRoute: typeof PeerMentorAvailabilityRoute
+  PeerMentorCasesRoute: typeof PeerMentorCasesRoute
+  PeerMentorDashboardRoute: typeof PeerMentorDashboardRoute
+  PeerMentorRequestsRoute: typeof PeerMentorRequestsRoute
+  PeerMentorSessionsRoute: typeof PeerMentorSessionsRoute
+  PeerSupportManageRoute: typeof PeerSupportManageRoute
+  SwagAvailabilityRoute: typeof SwagAvailabilityRoute
+  SwagCasesRoute: typeof SwagCasesRoute
+  SwagConcernsRoute: typeof SwagConcernsRoute
+  SwagDashboardRoute: typeof SwagDashboardRoute
+  SwagEscalationsRoute: typeof SwagEscalationsRoute
+  SwagRequestsRoute: typeof SwagRequestsRoute
+  SwagSessionsRoute: typeof SwagSessionsRoute
+  TeacherBookingsRoute: typeof TeacherBookingsRoute
+  TeacherConcernsRoute: typeof TeacherConcernsRoute
+  TeacherDashboardRoute: typeof TeacherDashboardRoute
+  TeacherEscalationsRoute: typeof TeacherEscalationsRoute
+  TeacherPeerSupportRoute: typeof TeacherPeerSupportRoute
   FormIndexRoute: typeof FormIndexRoute
+  PeerMentorCasesRequestIdRoute: typeof PeerMentorCasesRequestIdRoute
+  SwagCasesRequestIdRoute: typeof SwagCasesRequestIdRoute
+  SwagConcernsConcernIdRoute: typeof SwagConcernsConcernIdRoute
+  SwagEscalationsRequestIdRoute: typeof SwagEscalationsRequestIdRoute
+  TeacherConcernsConcernIdRoute: typeof TeacherConcernsConcernIdRoute
+  TeacherEscalationsRequestIdRoute: typeof TeacherEscalationsRequestIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -148,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/activities'
       fullPath: '/activities'
       preLoaderRoute: typeof ActivitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/members': {
@@ -192,19 +528,222 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FormConcernRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/peer-mentor_/availability': {
+      id: '/peer-mentor_/availability'
+      path: '/peer-mentor/availability'
+      fullPath: '/peer-mentor/availability'
+      preLoaderRoute: typeof PeerMentorAvailabilityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-mentor_/cases': {
+      id: '/peer-mentor_/cases'
+      path: '/peer-mentor/cases'
+      fullPath: '/peer-mentor/cases'
+      preLoaderRoute: typeof PeerMentorCasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-mentor_/dashboard': {
+      id: '/peer-mentor_/dashboard'
+      path: '/peer-mentor/dashboard'
+      fullPath: '/peer-mentor/dashboard'
+      preLoaderRoute: typeof PeerMentorDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-mentor_/requests': {
+      id: '/peer-mentor_/requests'
+      path: '/peer-mentor/requests'
+      fullPath: '/peer-mentor/requests'
+      preLoaderRoute: typeof PeerMentorRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-mentor_/sessions': {
+      id: '/peer-mentor_/sessions'
+      path: '/peer-mentor/sessions'
+      fullPath: '/peer-mentor/sessions'
+      preLoaderRoute: typeof PeerMentorSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-support/manage': {
+      id: '/peer-support/manage'
+      path: '/peer-support/manage'
+      fullPath: '/peer-support/manage'
+      preLoaderRoute: typeof PeerSupportManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/availability': {
+      id: '/swag_/availability'
+      path: '/swag/availability'
+      fullPath: '/swag/availability'
+      preLoaderRoute: typeof SwagAvailabilityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/cases': {
+      id: '/swag_/cases'
+      path: '/swag/cases'
+      fullPath: '/swag/cases'
+      preLoaderRoute: typeof SwagCasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/concerns': {
+      id: '/swag_/concerns'
+      path: '/swag/concerns'
+      fullPath: '/swag/concerns'
+      preLoaderRoute: typeof SwagConcernsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/dashboard': {
+      id: '/swag_/dashboard'
+      path: '/swag/dashboard'
+      fullPath: '/swag/dashboard'
+      preLoaderRoute: typeof SwagDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/escalations': {
+      id: '/swag_/escalations'
+      path: '/swag/escalations'
+      fullPath: '/swag/escalations'
+      preLoaderRoute: typeof SwagEscalationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/requests': {
+      id: '/swag_/requests'
+      path: '/swag/requests'
+      fullPath: '/swag/requests'
+      preLoaderRoute: typeof SwagRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/sessions': {
+      id: '/swag_/sessions'
+      path: '/swag/sessions'
+      fullPath: '/swag/sessions'
+      preLoaderRoute: typeof SwagSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/bookings': {
+      id: '/teacher_/bookings'
+      path: '/teacher/bookings'
+      fullPath: '/teacher/bookings'
+      preLoaderRoute: typeof TeacherBookingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/concerns': {
+      id: '/teacher_/concerns'
+      path: '/teacher/concerns'
+      fullPath: '/teacher/concerns'
+      preLoaderRoute: typeof TeacherConcernsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/dashboard': {
+      id: '/teacher_/dashboard'
+      path: '/teacher/dashboard'
+      fullPath: '/teacher/dashboard'
+      preLoaderRoute: typeof TeacherDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/escalations': {
+      id: '/teacher_/escalations'
+      path: '/teacher/escalations'
+      fullPath: '/teacher/escalations'
+      preLoaderRoute: typeof TeacherEscalationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/peer-support': {
+      id: '/teacher_/peer-support'
+      path: '/teacher/peer-support'
+      fullPath: '/teacher/peer-support'
+      preLoaderRoute: typeof TeacherPeerSupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peer-mentor_/cases_/$requestId': {
+      id: '/peer-mentor_/cases_/$requestId'
+      path: '/peer-mentor/cases/$requestId'
+      fullPath: '/peer-mentor/cases/$requestId'
+      preLoaderRoute: typeof PeerMentorCasesRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/cases_/$requestId': {
+      id: '/swag_/cases_/$requestId'
+      path: '/swag/cases/$requestId'
+      fullPath: '/swag/cases/$requestId'
+      preLoaderRoute: typeof SwagCasesRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/concerns_/$concernId': {
+      id: '/swag_/concerns_/$concernId'
+      path: '/swag/concerns/$concernId'
+      fullPath: '/swag/concerns/$concernId'
+      preLoaderRoute: typeof SwagConcernsConcernIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swag_/escalations_/$requestId': {
+      id: '/swag_/escalations_/$requestId'
+      path: '/swag/escalations/$requestId'
+      fullPath: '/swag/escalations/$requestId'
+      preLoaderRoute: typeof SwagEscalationsRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/concerns_/$concernId': {
+      id: '/teacher_/concerns_/$concernId'
+      path: '/teacher/concerns/$concernId'
+      fullPath: '/teacher/concerns/$concernId'
+      preLoaderRoute: typeof TeacherConcernsConcernIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher_/escalations_/$requestId': {
+      id: '/teacher_/escalations_/$requestId'
+      path: '/teacher/escalations/$requestId'
+      fullPath: '/teacher/escalations/$requestId'
+      preLoaderRoute: typeof TeacherEscalationsRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivitiesRoute: ActivitiesRoute,
+  LoginRoute: LoginRoute,
   MembersRoute: MembersRoute,
   PeerMentorRoute: PeerMentorRoute,
   WhatIsSwagRoute: WhatIsSwagRoute,
   FormBookingRoute: FormBookingRoute,
   FormConcernRoute: FormConcernRoute,
+  PeerMentorAvailabilityRoute: PeerMentorAvailabilityRoute,
+  PeerMentorCasesRoute: PeerMentorCasesRoute,
+  PeerMentorDashboardRoute: PeerMentorDashboardRoute,
+  PeerMentorRequestsRoute: PeerMentorRequestsRoute,
+  PeerMentorSessionsRoute: PeerMentorSessionsRoute,
+  PeerSupportManageRoute: PeerSupportManageRoute,
+  SwagAvailabilityRoute: SwagAvailabilityRoute,
+  SwagCasesRoute: SwagCasesRoute,
+  SwagConcernsRoute: SwagConcernsRoute,
+  SwagDashboardRoute: SwagDashboardRoute,
+  SwagEscalationsRoute: SwagEscalationsRoute,
+  SwagRequestsRoute: SwagRequestsRoute,
+  SwagSessionsRoute: SwagSessionsRoute,
+  TeacherBookingsRoute: TeacherBookingsRoute,
+  TeacherConcernsRoute: TeacherConcernsRoute,
+  TeacherDashboardRoute: TeacherDashboardRoute,
+  TeacherEscalationsRoute: TeacherEscalationsRoute,
+  TeacherPeerSupportRoute: TeacherPeerSupportRoute,
   FormIndexRoute: FormIndexRoute,
+  PeerMentorCasesRequestIdRoute: PeerMentorCasesRequestIdRoute,
+  SwagCasesRequestIdRoute: SwagCasesRequestIdRoute,
+  SwagConcernsConcernIdRoute: SwagConcernsConcernIdRoute,
+  SwagEscalationsRequestIdRoute: SwagEscalationsRequestIdRoute,
+  TeacherConcernsConcernIdRoute: TeacherConcernsConcernIdRoute,
+  TeacherEscalationsRequestIdRoute: TeacherEscalationsRequestIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

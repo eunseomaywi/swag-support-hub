@@ -172,3 +172,5 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+For the local Supabase stack, authenticated role workspaces, and the reviewed release order, see [docs/deployment.md](docs/deployment.md).

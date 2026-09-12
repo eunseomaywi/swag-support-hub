@@ -1,15 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { CheckCircle2, Copy, ExternalLink } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { PageSection } from "@/components/PageSection";
-import { FormStep, SubmittedPanel } from "@/components/form/FormStep";
+import { FormStep } from "@/components/form/FormStep";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { ReviewList, SelectField, TextAreaField, TextField } from "@/components/form/fields";
-import {
-  BOOKING_TOPICS,
-  YEAR_GROUPS,
-  isEmail,
-  submitBooking,
-  type BookingSubmission,
-} from "@/lib/submissions";
+import { BOOKING_TOPICS, YEAR_GROUPS, isEmail, type BookingSubmission } from "@/lib/submissions";
 
 export const Route = createFileRoute("/form/booking")({
   head: () => ({
@@ -17,7 +13,7 @@ export const Route = createFileRoute("/form/booking")({
       { title: "Booking Form — Book a Peer Mentor Session" },
       {
         name: "description",
-        content: "Book a session with a SWAG peer mentor in four short steps.",
+        content: "Request confidential support from a SWAG Peer Mentor in four short steps.",
       },
       { property: "og:title", content: "Book a Peer Mentor Session — SWAG" },
       { property: "og:description", content: "Book a session with a SWAG peer mentor." },
@@ -45,7 +41,14 @@ function BookingForm() {
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState("");
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState<{
+    requestId: string;
+    token: string;
+    expiresAt: string;
+  } | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   const set = (key: keyof BookingSubmission) => (value: string) =>
     setData((d) => ({ ...d, [key]: value }));
@@ -59,6 +62,12 @@ function BookingForm() {
     }
     if (current === 2) {
       if (!data.preferredDate) e["preferredDate"] = "Please choose a date.";
+      if (
+        data.preferredDate &&
+        data.preferredDate < new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
+      ) {
+        e["preferredDate"] = "Please choose today or a future date.";
+      }
       if (!data.preferredTime) e["preferredTime"] = "Please choose a time.";
       if (!data.topic) e["topic"] = "Please choose a topic.";
     }
@@ -77,10 +86,40 @@ function BookingForm() {
     setSubmitting(true);
     setSubmitError("");
     try {
-      await submitBooking(data);
-      setDone(true);
+      if (!turnstileToken) throw new Error("security_check");
+      const response = await fetch("/api/peer-support/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          turnstileToken,
+          studentName: data.name,
+          yearGroup: data.yearGroup,
+          contactEmail: data.email,
+          category: data.topic,
+          preferredDate: data.preferredDate,
+          preferredTime: data.preferredTime,
+          privateExplanation: data.additionalInfo,
+        }),
+      });
+      const body = (await response.json()) as {
+        requestId?: string;
+        managementToken?: string;
+        expiresAt?: string;
+        error?: string;
+      };
+      if (!response.ok || !body.requestId || !body.managementToken || !body.expiresAt) {
+        throw new Error(body.error || "submission_failed");
+      }
+      setResult({
+        requestId: body.requestId,
+        token: body.managementToken,
+        expiresAt: body.expiresAt,
+      });
     } catch {
-      setSubmitError("We couldn't submit your booking. Please try again.");
+      setSubmitError(
+        "We couldn't submit your request. Check the form and security check, then try again.",
+      );
+      setTurnstileReset((value) => value + 1);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -88,14 +127,70 @@ function BookingForm() {
   }
 
   const back = () => setStep((s) => Math.max(1, s - 1));
+  const managementLink = useMemo(
+    () =>
+      result && typeof window !== "undefined"
+        ? `${window.location.origin}/peer-support/manage#token=${result.token}`
+        : "",
+    [result],
+  );
+  const handleToken = useCallback((token: string | null) => setTurnstileToken(token), []);
+  const handleTurnstileError = useCallback(
+    () => setSubmitError("The security check could not load. Please refresh and try again."),
+    [],
+  );
+
+  async function copyLink() {
+    if (!managementLink) return;
+    await navigator.clipboard.writeText(managementLink);
+    setCopied(true);
+  }
 
   return (
     <PageSection
-      title="Booking Form"
-      intro="Book a session with one of our peer mentors. It only takes a minute."
+      title="Peer Support Request"
+      intro="Ask for support from a Peer Mentor or SWAG Member. Submitting a request does not confirm a session time."
     >
-      {done ? (
-        <SubmittedPanel message="Your booking has been submitted successfully." />
+      {result ? (
+        <section
+          className="paper-card mx-auto max-w-2xl border-swag-green/45 p-6 sm:p-8"
+          aria-live="polite"
+        >
+          <CheckCircle2 className="h-10 w-10 text-swag-green" aria-hidden="true" />
+          <h2 className="mt-4 text-2xl font-bold text-swag-navy">Request received</h2>
+          <p className="mt-2 leading-relaxed text-muted-foreground">
+            Your request is waiting for a Peer Mentor or SWAG Member to accept it. A match does not
+            confirm an appointment; you will choose from their published times afterward.
+          </p>
+          <div className="mt-6 rounded-xl border border-swag-orange/35 bg-swag-orange/5 p-4">
+            <h3 className="font-bold text-swag-navy">Save your private management link</h3>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              This link is shown once. Anyone holding it can manage this request, so store it
+              privately. It expires after 90 days.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void copyLink()}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />{" "}
+                {copied ? "Copied" : "Copy private link"}
+              </button>
+              <a
+                href={managementLink}
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-swag-navy"
+              >
+                Open request <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+          <p className="mt-5 text-sm text-muted-foreground">
+            This online form is not an emergency channel. If someone is in immediate danger, contact
+            emergency services or a trusted adult now.
+          </p>
+        </section>
       ) : (
         <>
           {step === 1 && (
@@ -134,9 +229,9 @@ function BookingForm() {
                 onChange={(e) => set("preferredDate")(e.target.value)}
                 error={errors["preferredDate"]}
               />
-              <TextField
+              <SelectField
                 label="Preferred Time"
-                type="time"
+                options={["Break", "1st Lunch", "2nd Lunch"]}
                 value={data.preferredTime}
                 onChange={(e) => set("preferredTime")(e.target.value)}
                 error={errors["preferredTime"]}
@@ -174,7 +269,8 @@ function BookingForm() {
               submitError={submitError}
             >
               <p className="text-sm text-muted-foreground">
-                Please review your details before submitting.
+                Please review your details. Your request enters a private matching queue; it is not
+                a confirmed session.
               </p>
               <ReviewList
                 items={[
@@ -187,6 +283,15 @@ function BookingForm() {
                   { label: "Notes", value: data.additionalInfo },
                 ]}
               />
+              <TurnstileWidget
+                resetKey={turnstileReset}
+                onToken={handleToken}
+                onError={handleTurnstileError}
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                This online form is not an emergency channel. If someone is in immediate danger,
+                contact emergency services or a trusted adult now.
+              </p>
             </FormStep>
           )}
         </>
