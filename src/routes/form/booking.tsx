@@ -29,18 +29,20 @@ const empty: BookingSubmission = {
   yearGroup: "",
   email: "",
   preferredDate: "",
-  preferredTime: "",
+  preferredPeriods: [],
   topic: "",
   additionalInfo: "",
 };
 
 function BookingForm() {
   const [intakeState, setIntakeState] = useState<"checking" | "enabled" | "disabled">("checking");
+  const [emailConfigured, setEmailConfigured] = useState(false);
   const [step, setStep] = useState(1);
   const [data, setData] = useState<BookingSubmission>(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const submissionKeyRef = useRef(crypto.randomUUID());
   const [submitError, setSubmitError] = useState("");
   const [result, setResult] = useState<{
     requestId: string;
@@ -55,8 +57,12 @@ function BookingForm() {
     let active = true;
     void fetch("/api/peer-support/status", { cache: "no-store" })
       .then(async (response) => {
-        const body = (await response.json()) as { enabled?: boolean };
+        const body = (await response.json()) as {
+          enabled?: boolean;
+          email?: { configured?: boolean };
+        };
         if (active) setIntakeState(response.ok && body.enabled === true ? "enabled" : "disabled");
+        if (active) setEmailConfigured(body.email?.configured === true);
       })
       .catch(() => {
         if (active) setIntakeState("disabled");
@@ -84,7 +90,8 @@ function BookingForm() {
       ) {
         e["preferredDate"] = "Please choose today or a future date.";
       }
-      if (!data.preferredTime) e["preferredTime"] = "Please choose a time.";
+      if (data.preferredPeriods.length === 0)
+        e["preferredPeriods"] = "Please choose at least one time.";
       if (!data.topic) e["topic"] = "Please choose a topic.";
     }
     setErrors(e);
@@ -108,12 +115,13 @@ function BookingForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           turnstileToken,
+          submissionKey: submissionKeyRef.current,
           studentName: data.name,
           yearGroup: data.yearGroup,
           contactEmail: data.email,
           category: data.topic,
           preferredDate: data.preferredDate,
-          preferredTime: data.preferredTime,
+          preferredPeriods: data.preferredPeriods,
           privateExplanation: data.additionalInfo,
         }),
       });
@@ -200,10 +208,17 @@ function BookingForm() {
           aria-live="polite"
         >
           <CheckCircle2 className="h-10 w-10 text-swag-green" aria-hidden="true" />
-          <h2 className="mt-4 text-2xl font-bold text-swag-navy">Request received</h2>
+          <h2 className="mt-4 text-2xl font-bold text-swag-navy">
+            Request received — waiting for a mentor.
+          </h2>
           <p className="mt-2 leading-relaxed text-muted-foreground">
-            Your request is waiting for a Peer Mentor or SWAG Member to accept it. A match does not
-            confirm an appointment; you will choose from their published times afterward.
+            Your request is waiting for a Peer Mentor or SWAG Member to confirm one of the times you
+            selected.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            {emailConfigured
+              ? "When the appointment is confirmed, details will be sent to the email address you entered."
+              : "Confirmation email delivery is not configured yet. Staff will only confirm appointments after the approved service is ready."}
           </p>
           <div className="mt-6 rounded-xl border border-swag-orange/35 bg-swag-orange/5 p-4">
             <h3 className="font-bold text-swag-navy">Save your private management link</h3>
@@ -272,13 +287,48 @@ function BookingForm() {
                 onChange={(e) => set("preferredDate")(e.target.value)}
                 error={errors["preferredDate"]}
               />
-              <SelectField
-                label="Preferred Time"
-                options={["Break", "1st Lunch", "2nd Lunch"]}
-                value={data.preferredTime}
-                onChange={(e) => set("preferredTime")(e.target.value)}
-                error={errors["preferredTime"]}
-              />
+              <fieldset>
+                <legend className="mb-2 text-sm font-semibold text-swag-navy">
+                  Available times
+                </legend>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Choose every period you can attend.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {(
+                    [
+                      ["break", "Break"],
+                      ["lunch_1", "1st Lunch"],
+                      ["lunch_2", "2nd Lunch"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <label
+                      key={value}
+                      className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-swag-navy focus-within:border-swag-blue"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={data.preferredPeriods.includes(value)}
+                        onChange={(event) =>
+                          setData((current) => ({
+                            ...current,
+                            preferredPeriods: event.target.checked
+                              ? [...current.preferredPeriods, value]
+                              : current.preferredPeriods.filter((period) => period !== value),
+                          }))
+                        }
+                        className="h-4 w-4"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                {errors["preferredPeriods"] && (
+                  <p role="alert" className="mt-2 text-sm text-destructive">
+                    {errors["preferredPeriods"]}
+                  </p>
+                )}
+              </fieldset>
               <SelectField
                 label="Topic"
                 options={BOOKING_TOPICS}
@@ -321,7 +371,15 @@ function BookingForm() {
                   { label: "Year Group", value: data.yearGroup },
                   { label: "Email", value: data.email },
                   { label: "Date", value: data.preferredDate },
-                  { label: "Time", value: data.preferredTime },
+                  {
+                    label: "Available times",
+                    value: data.preferredPeriods
+                      .map(
+                        (period) =>
+                          ({ break: "Break", lunch_1: "1st Lunch", lunch_2: "2nd Lunch" })[period],
+                      )
+                      .join(", "),
+                  },
                   { label: "Topic", value: data.topic },
                   { label: "Notes", value: data.additionalInfo },
                 ]}

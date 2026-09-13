@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import {
-  CalendarClock,
   CheckCircle2,
   Clock3,
   EyeOff,
@@ -17,10 +16,56 @@ import { getSupabaseClient } from "@/lib/supabase";
 import type { Database } from "@/types/database";
 
 type PeerRole = "peer_mentor" | "swag_member";
-type QueueRow = Database["public"]["Functions"]["list_available_peer_requests"]["Returns"][number];
-type CaseRow = Database["public"]["Functions"]["list_my_peer_cases"]["Returns"][number];
-type SlotRow = Database["public"]["Functions"]["list_my_peer_availability"]["Returns"][number];
-type SessionRow = Database["public"]["Functions"]["list_my_peer_sessions"]["Returns"][number];
+type QueueRow = {
+  request_id: string;
+  category: string;
+  preferred_date: string;
+  preferred_time: string;
+  preferred_periods: string[];
+  submitted_at: string;
+  dismissed: boolean;
+  stale: boolean;
+};
+type PreviewRow = {
+  request_id: string;
+  preferred_date: string;
+  period: string;
+  period_label: string;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  display_timezone: string;
+  location_guidance: string | null;
+  ready: boolean;
+  readiness_issue: string | null;
+};
+type CaseRow = {
+  request_id: string;
+  student_name: string | null;
+  year_group: string | null;
+  contact_email: string | null;
+  category: string;
+  preferred_date: string;
+  preferred_time: string;
+  preferred_periods: string[];
+  private_explanation: string | null;
+  status: string;
+  submitted_at: string;
+  session_id: string | null;
+  session_start: string | null;
+  session_end: string | null;
+  session_label: string | null;
+  session_period: string | null;
+  session_location: string | null;
+  session_status: string | null;
+  student_email_job_id: string | null;
+  mentor_email_job_id: string | null;
+  teacher_email_job_id: string | null;
+  student_email_status: string | null;
+  mentor_email_status: string | null;
+  teacher_email_status: string | null;
+  escalation_reason: string | null;
+  escalated_at: string | null;
+};
 type CountRow = Database["public"]["Functions"]["get_peer_dashboard_counts"]["Returns"][number];
 type EscalationRow = Database["public"]["Functions"]["list_peer_escalations"]["Returns"][number];
 type EscalationDetail = Database["public"]["Functions"]["get_peer_escalation"]["Returns"][number];
@@ -105,10 +150,10 @@ export function PeerHome({ role }: { role: PeerRole }) {
           accent="pink"
         />
         <SummaryCard
-          icon={CalendarClock}
-          label="Available slots"
-          value={value("my_available_slot_count")}
-          note="Your published availability"
+          icon={ShieldAlert}
+          label="Email attention"
+          value={value("email_attention_count" as keyof CountRow)}
+          note="Failed or uncertain confirmation emails"
           accent="green"
         />
       </div>
@@ -148,6 +193,8 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
   const [error, setError] = useState<string | null>(null);
   const [includePassed, setIncludePassed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewRow[] | null>(null);
+  const [previewRequest, setPreviewRequest] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -162,15 +209,54 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
     setLoading(false);
   }, [includePassed]);
   useFocusRefresh(load);
-  async function claim(id: string) {
+  async function openConfirmation(id: string) {
     setBusy(id);
     setError(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc("claim_peer_request", {
-      p_request_id: id,
-    });
-    if (rpcError) setError("This request could not be accepted.");
-    else if (!data?.[0]?.success)
-      setError("Another mentor has already accepted this request. The list has been refreshed.");
+    const { data, error: rpcError } = await getSupabaseClient().rpc(
+      "preview_peer_request_confirmation",
+      {
+        p_request_id: id,
+      },
+    );
+    if (rpcError || !data?.length) setError("Confirmation options could not be loaded.");
+    else {
+      setPreview(data as PreviewRow[]);
+      setPreviewRequest(id);
+    }
+    setBusy(null);
+  }
+  async function confirm(period: string) {
+    if (!previewRequest) return;
+    setBusy(previewRequest);
+    setError(null);
+    const { data, error: rpcError } = await getSupabaseClient().rpc(
+      "confirm_and_accept_peer_request",
+      {
+        p_request_id: previewRequest,
+        p_period: period,
+      },
+    );
+    const result = data?.[0];
+    if (rpcError || !result?.success) {
+      const outcome = result?.outcome;
+      setError(
+        outcome === "mentor_conflict"
+          ? "You already have another appointment at that time."
+          : outcome === "configuration_not_ready"
+            ? "The school schedule, location, or supervisor Teacher is not ready."
+            : "Another mentor may have confirmed this request. The list has been refreshed.",
+      );
+    } else {
+      const { data: session } = await getSupabaseClient().auth.getSession();
+      if (session.session?.access_token) {
+        void fetch("/api/peer-support/email/kick", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.session.access_token}` },
+        });
+      }
+      setPreview(null);
+      setPreviewRequest(null);
+    }
     await load();
     setBusy(null);
   }
@@ -247,10 +333,10 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
               <div className="mt-5 flex gap-2">
                 <button
                   disabled={busy === row.request_id}
-                  onClick={() => void claim(row.request_id)}
+                  onClick={() => void openConfirmation(row.request_id)}
                   className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
-                  Accept
+                  I'll take this
                 </button>
                 <button
                   disabled={busy === row.request_id}
@@ -268,6 +354,60 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
             </article>
           ))}
         </div>
+      )}
+      {previewRequest && preview && (
+        <section className="paper-card mt-6 border-swag-green/40 p-5 sm:p-7" aria-live="polite">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-swag-navy">Confirm &amp; Accept</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose only one of the student's available periods. The school time and location
+                below will be saved as a snapshot.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="min-h-11 rounded-lg border border-border px-3 text-sm font-semibold"
+              onClick={() => {
+                setPreview(null);
+                setPreviewRequest(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <div className="mt-5 grid gap-3">
+            {preview.map((option) => (
+              <article key={option.period} className="rounded-xl border border-border p-4">
+                <p className="font-bold text-swag-navy">
+                  {option.preferred_date} · {option.period_label}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {option.scheduled_start && option.scheduled_end
+                    ? `${format(option.scheduled_start)}–${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", timeStyle: "short" }).format(new Date(option.scheduled_end))} · ${option.location_guidance}`
+                    : "School schedule or location is not configured."}
+                </p>
+                {!option.ready && (
+                  <p className="mt-2 text-xs font-semibold text-swag-orange">
+                    Not ready: {option.readiness_issue?.replaceAll("_", " ")}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={!option.ready || busy === previewRequest}
+                  onClick={() => void confirm(option.period)}
+                  className="mt-3 min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  Confirm &amp; Accept
+                </button>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            Only the student, the mentor who confirms this request, and the designated supervisor
+            Teacher receive separate confirmation emails when email delivery is configured.
+          </p>
+        </section>
       )}
     </>
   );
@@ -313,7 +453,9 @@ export function MyCases({ role }: { role: PeerRole }) {
               <div>
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full bg-swag-blue/10 px-2.5 py-1 text-xs font-semibold capitalize text-swag-blue">
-                    {row.status}
+                    {row.status === "accepted" && row.session_id
+                      ? "confirmed"
+                      : row.status.replace("_", " ")}
                   </span>
                   <span className="text-xs text-muted-foreground">{row.category}</span>
                 </div>
@@ -321,7 +463,7 @@ export function MyCases({ role }: { role: PeerRole }) {
                   {row.status === "escalated" ? "Escalated handover" : row.student_name}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {row.status === "scheduled"
+                  {row.session_start
                     ? format(row.session_start)
                     : `${row.preferred_date} · ${row.preferred_time}`}
                 </p>
@@ -359,14 +501,20 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
     setLoading(false);
   }, [requestId]);
   useFocusRefresh(load);
-  async function action(kind: "complete" | "cancel") {
+  async function action(kind: "complete" | "cancel" | "no_show") {
     setBusy(true);
     const result =
       kind === "complete"
         ? await getSupabaseClient().rpc("complete_my_peer_case", { p_request_id: requestId })
-        : await getSupabaseClient().rpc("cancel_my_peer_session", { p_request_id: requestId });
+        : kind === "no_show"
+          ? await getSupabaseClient().rpc("mark_peer_case_no_show", { p_request_id: requestId })
+          : await getSupabaseClient().rpc("cancel_my_peer_session", { p_request_id: requestId });
     if (result.error || !result.data)
-      setError(`The case could not be ${kind === "complete" ? "completed" : "updated"}.`);
+      setError(
+        kind === "cancel"
+          ? "The appointment could not be cancelled."
+          : "That outcome can only be recorded after the appointment ends and from an active confirmed state.",
+      );
     await load();
     setBusy(false);
   }
@@ -381,6 +529,16 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
       p_reason: reason,
     });
     if (rpcError || !data) setError("This case could not be escalated.");
+    await load();
+    setBusy(false);
+  }
+  async function retry(jobId: string) {
+    setBusy(true);
+    const { data, error: rpcError } = await getSupabaseClient().rpc("retry_confirmation_email", {
+      p_outbox_id: jobId,
+    });
+    if (rpcError || !data)
+      setError("That confirmation email cannot be retried from the current state.");
     await load();
     setBusy(false);
   }
@@ -410,7 +568,9 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
       <div className="mt-5">
         <DashboardPageHeading
           eyebrow={`Status · ${row.status}`}
-          title={privateVisible ? row.student_name : "Teacher handover complete"}
+          title={
+            privateVisible ? row.student_name || "Assigned student" : "Teacher handover complete"
+          }
           description={
             privateVisible
               ? `${row.category} · ${row.year_group}`
@@ -426,14 +586,14 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
       {privateVisible && (
         <div className="grid gap-5 lg:grid-cols-[1fr_0.7fr]">
           <section className="paper-card border-swag-blue/35 p-5 sm:p-7">
-            <h2 className="text-lg font-bold text-swag-navy">Request details</h2>
+            <h2 className="text-lg font-bold text-swag-navy">Case details</h2>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-muted-foreground">Contact email</dt>
                 <dd className="break-all font-semibold text-swag-navy">{row.contact_email}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Preferred time</dt>
+                <dt className="text-muted-foreground">Requested availability</dt>
                 <dd className="font-semibold text-swag-navy">
                   {row.preferred_date} · {row.preferred_time}
                 </dd>
@@ -452,11 +612,44 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
                 </p>
               </div>
             )}
+            {row.session_id && (
+              <div className="mt-5 rounded-xl border border-swag-blue/30 p-4 text-sm">
+                <strong className="text-swag-navy">Confirmation email status</strong>
+                <dl className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {[
+                    ["Student", row.student_email_status, row.student_email_job_id],
+                    ["Mentor", row.mentor_email_status, row.mentor_email_job_id],
+                    ["Teacher", row.teacher_email_status, row.teacher_email_job_id],
+                  ].map(([label, status, job]) => (
+                    <div key={label}>
+                      <dt className="text-muted-foreground">{label}</dt>
+                      <dd className="font-semibold capitalize text-swag-navy">
+                        {status?.replace("_", " ") || "not queued"}
+                      </dd>
+                      {job && (status === "failed" || status === "uncertain") && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void retry(job)}
+                          className="mt-1 text-xs font-semibold text-swag-blue underline"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Submitted means the provider accepted the request. Delivered is only shown after a
+                  verified provider event.
+                </p>
+              </div>
+            )}
           </section>
           <aside className="paper-card border-swag-green/35 p-5">
             <h2 className="text-lg font-bold text-swag-navy">Next actions</h2>
             <div className="mt-4 grid gap-3">
-              {row.status === "scheduled" && (
+              {["accepted", "scheduled"].includes(row.status) && row.session_id && (
                 <>
                   <button
                     disabled={busy}
@@ -467,13 +660,24 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
                   </button>
                   <button
                     disabled={busy}
-                    onClick={() => void action("cancel")}
+                    onClick={() => void action("no_show")}
+                    className="min-h-11 rounded-lg border border-swag-orange/40 px-4 text-sm font-semibold text-swag-orange"
+                  >
+                    Mark no-show
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      window.confirm(
+                        "Cancel this appointment? No cancellation email will be sent.",
+                      ) && void action("cancel")
+                    }
                     className="min-h-11 rounded-lg border border-border px-4 text-sm font-semibold text-swag-navy"
                   >
                     Cancel session
                   </button>
                 </>
-              )}{" "}
+              )}
               {["accepted", "scheduled"].includes(row.status) && (
                 <>
                   <label className="text-sm font-semibold text-swag-navy">
@@ -499,211 +703,6 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
           </aside>
         </div>
       )}
-    </>
-  );
-}
-
-export function MySessions() {
-  const [rows, setRows] = useState<SessionRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await getSupabaseClient().rpc("list_my_peer_sessions");
-    setRows(data ?? []);
-    setLoading(false);
-  }, []);
-  useFocusRefresh(load);
-  return (
-    <>
-      <DashboardPageHeading
-        eyebrow="Peer Support"
-        title="My Sessions"
-        description="Confirmed and completed sessions are shown in Asia/Seoul."
-      />
-      {loading ? (
-        <PageState>Loading sessions…</PageState>
-      ) : rows.length === 0 ? (
-        <PageState tone="green">
-          No sessions yet. A student can select a time after you accept their request.
-        </PageState>
-      ) : (
-        <div className="grid gap-3">
-          {rows.map((row) => (
-            <article
-              key={row.session_id}
-              className="paper-card flex flex-col gap-3 border-swag-pink/30 p-5 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <span className="rounded-full bg-swag-pink/10 px-2 py-1 text-xs font-semibold capitalize text-swag-pink">
-                  {row.status}
-                </span>
-                <h2 className="mt-2 font-bold text-swag-navy">{row.category}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {format(row.scheduled_start)}
-                  {row.time_label ? ` · ${row.time_label}` : ""}
-                </p>
-              </div>
-              {row.location && (
-                <p className="text-sm font-semibold text-swag-navy">{row.location}</p>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
-function asSeoulInstant(value: string) {
-  return new Date(`${value}:00+09:00`).toISOString();
-}
-
-export function MyAvailability() {
-  const [rows, setRows] = useState<SlotRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ start: "", end: "", label: "", location: "" });
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error: rpcError } = await getSupabaseClient().rpc("list_my_peer_availability");
-    setRows(data ?? []);
-    setError(rpcError ? "Availability could not be loaded." : null);
-    setLoading(false);
-  }, []);
-  useFocusRefresh(load);
-  async function create(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-    if (!form.start || !form.end || form.start >= form.end) {
-      setError("Choose a valid start and end time.");
-      return;
-    }
-    setBusy(true);
-    const { error: rpcError } = await getSupabaseClient().rpc("create_peer_availability", {
-      p_start_at: asSeoulInstant(form.start),
-      p_end_at: asSeoulInstant(form.end),
-      p_time_label: form.label,
-      p_location: form.location,
-    });
-    if (rpcError) setError("That slot is invalid, in the past, or overlaps an existing slot.");
-    else setForm({ start: "", end: "", label: "", location: "" });
-    await load();
-    setBusy(false);
-  }
-  async function withdraw(id: string) {
-    setBusy(true);
-    const { error: rpcError } = await getSupabaseClient().rpc("withdraw_peer_availability", {
-      p_slot_id: id,
-    });
-    if (rpcError) setError("Reserved or protected slots cannot be withdrawn.");
-    await load();
-    setBusy(false);
-  }
-  return (
-    <>
-      <DashboardPageHeading
-        eyebrow="Your schedule"
-        title="My Availability"
-        description="Publish real dated slots for students matched with you. Times are entered and displayed in Asia/Seoul."
-      />
-      <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-        <form onSubmit={create} className="paper-card border-swag-green/35 p-5">
-          <h2 className="text-lg font-bold text-swag-navy">Add a slot</h2>
-          <div className="mt-4 grid gap-4">
-            <label className="text-sm font-semibold text-swag-navy">
-              Start
-              <input
-                required
-                type="datetime-local"
-                value={form.start}
-                onChange={(event) => setForm({ ...form, start: event.target.value })}
-                className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 font-normal"
-              />
-            </label>
-            <label className="text-sm font-semibold text-swag-navy">
-              End
-              <input
-                required
-                type="datetime-local"
-                value={form.end}
-                onChange={(event) => setForm({ ...form, end: event.target.value })}
-                className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 font-normal"
-              />
-            </label>
-            <label className="text-sm font-semibold text-swag-navy">
-              School time label
-              <select
-                value={form.label}
-                onChange={(event) => setForm({ ...form, label: event.target.value })}
-                className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 font-normal"
-              >
-                <option value="">No label</option>
-                <option>Break</option>
-                <option>1st Lunch</option>
-                <option>2nd Lunch</option>
-              </select>
-            </label>
-            <label className="text-sm font-semibold text-swag-navy">
-              Location (optional)
-              <input
-                maxLength={120}
-                value={form.location}
-                onChange={(event) => setForm({ ...form, location: event.target.value })}
-                className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 font-normal"
-              />
-            </label>
-            <button
-              disabled={busy}
-              className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-            >
-              Publish availability
-            </button>
-          </div>
-        </form>
-        <section>
-          <h2 className="mb-4 text-lg font-bold text-swag-navy">Published slots</h2>
-          {error && (
-            <p role="alert" className="mb-3 rounded-lg border border-swag-orange/35 p-3 text-sm">
-              {error}
-            </p>
-          )}
-          {loading ? (
-            <PageState>Loading availability…</PageState>
-          ) : rows.length === 0 ? (
-            <PageState tone="green">No upcoming availability has been published.</PageState>
-          ) : (
-            <div className="grid gap-3">
-              {rows.map((row) => (
-                <article
-                  key={row.slot_id}
-                  className="paper-card flex flex-col gap-3 border-swag-green/30 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <span className="text-xs font-semibold capitalize text-swag-green">
-                      {row.status}
-                    </span>
-                    <h3 className="font-bold text-swag-navy">{format(row.start_at)}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {row.time_label || "No label"}
-                      {row.location ? ` · ${row.location}` : ""}
-                    </p>
-                  </div>
-                  {row.status === "available" && (
-                    <button
-                      disabled={busy}
-                      onClick={() => void withdraw(row.slot_id)}
-                      className="min-h-10 rounded-lg border border-border px-3 text-sm font-semibold text-swag-navy"
-                    >
-                      Withdraw
-                    </button>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
     </>
   );
 }

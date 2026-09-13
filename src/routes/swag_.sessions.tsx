@@ -1,10 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DashboardPage } from "@/components/dashboard/DashboardLayout";
-import { MySessions } from "@/components/dashboard/PeerSupportPages";
+import { Navigate } from "@tanstack/react-router";
 export const Route = createFileRoute("/swag_/sessions")({
-  component: () => (
-    <DashboardPage role="swag_member">
-      <MySessions />
-    </DashboardPage>
-  ),
+  component: () => <Navigate to="/swag/cases" replace />,
 });

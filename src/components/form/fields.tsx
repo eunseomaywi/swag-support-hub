@@ -3,7 +3,7 @@ import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 const control =
-  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-swag-blue focus:outline-none";
+  "w-full min-w-0 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-swag-blue focus:outline-none";
 
 function FieldShell({
   label,
@@ -19,7 +19,7 @@ function FieldShell({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <label htmlFor={htmlFor} className="block text-sm font-semibold text-swag-navy">
         {label}
       </label>

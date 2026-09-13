@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarClock, CheckCircle2, Clock3, LockKeyhole, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, LockKeyhole, RefreshCw, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { PageSection } from "@/components/PageSection";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -9,6 +9,7 @@ export const Route = createFileRoute("/peer-support/manage")({
     meta: [
       { title: "Manage Peer Support Request — SWAG" },
       { name: "referrer", content: "no-referrer" },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: PeerSupportManage,
@@ -17,10 +18,11 @@ export const Route = createFileRoute("/peer-support/manage")({
 type Management = {
   request_id: string;
   status: string;
-  category: string;
+  category?: string;
   preferred_date: string;
-  preferred_time: string;
-  submitted_at: string;
+  preferred_time?: string;
+  preferred_periods?: string[];
+  submitted_at?: string;
   assigned_mentor_name: string | null;
   session_id: string | null;
   session_start: string | null;
@@ -29,97 +31,130 @@ type Management = {
   session_location: string | null;
   session_status: string | null;
 };
-type Slot = {
-  slot_id: string;
-  start_at: string;
-  end_at: string;
-  time_label: string | null;
-  location: string | null;
-};
-
 const TOKEN_KEY = "swag_peer_request_token";
+const CONFIRMATION_KEY = "swag_peer_confirmation_token";
 const seoul = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Seoul",
   dateStyle: "medium",
   timeStyle: "short",
 });
+const time = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", timeStyle: "short" });
 
 function PeerSupportManage() {
-  const [token, setToken] = useState<string | null>(null);
+  const [credential, setCredential] = useState<{
+    token: string;
+    kind: "legacy" | "confirmation";
+  } | null>(null);
   const [request, setRequest] = useState<Management | null>(null);
-  const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
-    const incoming = fragment.get("token");
-    if (incoming && /^[0-9a-f]{64}$/.test(incoming)) sessionStorage.setItem(TOKEN_KEY, incoming);
+    const signed = fragment.get("confirmation");
+    const legacy = fragment.get("token");
+    if (signed?.startsWith("v1.")) sessionStorage.setItem(CONFIRMATION_KEY, signed);
+    if (legacy && /^[0-9a-f]{64}$/.test(legacy)) sessionStorage.setItem(TOKEN_KEY, legacy);
     if (window.location.hash) history.replaceState(null, "", window.location.pathname);
-    setToken(
-      incoming && /^[0-9a-f]{64}$/.test(incoming) ? incoming : sessionStorage.getItem(TOKEN_KEY),
-    );
+    if (signed?.startsWith("v1.")) setCredential({ token: signed, kind: "confirmation" });
+    else if (legacy && /^[0-9a-f]{64}$/.test(legacy))
+      setCredential({ token: legacy, kind: "legacy" });
+    else {
+      const savedSigned = sessionStorage.getItem(CONFIRMATION_KEY);
+      const savedLegacy = sessionStorage.getItem(TOKEN_KEY);
+      setCredential(
+        savedSigned
+          ? { token: savedSigned, kind: "confirmation" }
+          : savedLegacy
+            ? { token: savedLegacy, kind: "legacy" }
+            : null,
+      );
+    }
   }, []);
 
-  const load = useCallback(async (credential: string) => {
+  const load = useCallback(async (current: { token: string; kind: "legacy" | "confirmation" }) => {
     setLoading(true);
     setError(null);
-    const client = getSupabaseClient();
-    const [management, available] = await Promise.all([
-      client.rpc("get_peer_request_management", { p_token: credential }),
-      client.rpc("list_peer_request_slots", { p_token: credential }),
-    ]);
-    if (management.error || !management.data?.[0]) {
-      setRequest(null);
-      setSlots([]);
-      setError("This private link is invalid, expired, or has been revoked.");
+    if (current.kind === "legacy") {
+      const { data, error: rpcError } = await getSupabaseClient().rpc(
+        "get_peer_request_management",
+        { p_token: current.token },
+      );
+      if (rpcError || !data?.[0]) {
+        setRequest(null);
+        setError("This private link is invalid, expired, or has been revoked.");
+      } else setRequest(data[0] as Management);
     } else {
-      setRequest(management.data[0] as Management);
-      setSlots((available.data ?? []) as Slot[]);
+      const response = await fetch("/api/peer-support/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: current.token, action: "status" }),
+      });
+      const body = (await response.json()) as Management & { error?: string };
+      if (!response.ok) {
+        setRequest(null);
+        setError(body.error || "This private link is no longer active.");
+      } else setRequest(body);
     }
     setLoading(false);
   }, []);
-
   useEffect(() => {
-    if (token) void load(token);
+    if (credential) void load(credential);
     else {
       setLoading(false);
-      setError("Open the private link you saved when submitting your request.");
+      setError("Open the private link shown after submitting or sent in your confirmation email.");
     }
-  }, [load, token]);
-
-  async function schedule(slotId: string) {
-    if (!token) return;
-    setBusy(true);
-    setError(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc("schedule_peer_session", {
-      p_token: token,
-      p_slot_id: slotId,
-    });
-    if (rpcError || !data?.[0]?.success)
-      setError("That time is no longer available. Please choose another.");
-    await load(token);
-    setBusy(false);
-  }
+  }, [credential, load]);
 
   async function cancel() {
-    if (!token || !window.confirm("Cancel this Peer Support request and any confirmed session?"))
+    if (
+      !credential ||
+      !window.confirm(
+        "Cancel this appointment? The schedule will be cancelled and no separate cancellation email will be sent.",
+      )
+    )
       return;
     setBusy(true);
     setError(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc("cancel_peer_request", {
-      p_token: token,
-    });
-    if (rpcError || !data?.[0]?.success) setError("This request could not be cancelled.");
-    await load(token);
+    setNotice(null);
+    if (credential.kind === "legacy") {
+      const { data, error: rpcError } = await getSupabaseClient().rpc("cancel_peer_request", {
+        p_token: credential.token,
+      });
+      if (rpcError || !data?.[0]?.success) setError("This request could not be cancelled.");
+      else {
+        setRequest((current) =>
+          current ? { ...current, status: "cancelled", session_status: "cancelled" } : current,
+        );
+        setNotice("The appointment is cancelled. No cancellation email was sent.");
+        sessionStorage.removeItem(TOKEN_KEY);
+      }
+    } else {
+      const response = await fetch("/api/peer-support/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: credential.token, action: "cancel" }),
+      });
+      const body = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !body.success)
+        setError(body.error || "This appointment could not be cancelled.");
+      else {
+        setRequest((current) =>
+          current ? { ...current, status: "cancelled", session_status: "cancelled" } : current,
+        );
+        setNotice("The appointment is cancelled. No cancellation email was sent.");
+        sessionStorage.removeItem(CONFIRMATION_KEY);
+      }
+    }
     setBusy(false);
   }
 
   return (
     <PageSection
       title="Manage Peer Support"
-      intro="Use your private link to check progress and choose an available session time."
+      intro="Use your private link to check the latest status and cancel your own appointment."
     >
       <div className="mx-auto max-w-3xl" aria-live="polite">
         {loading && (
@@ -143,10 +178,12 @@ function PeerSupportManage() {
                     Request status
                   </p>
                   <h2 className="mt-1 text-2xl font-bold capitalize text-swag-navy">
-                    {request.status}
+                    {request.status === "accepted" && request.session_start
+                      ? "Confirmed"
+                      : request.status.replace("_", " ")}
                   </h2>
                 </div>
-                {request.status === "scheduled" ? (
+                {request.session_start && request.status !== "cancelled" ? (
                   <CheckCircle2 className="h-9 w-9 text-swag-green" />
                 ) : (
                   <Clock3 className="h-9 w-9 text-swag-orange" />
@@ -154,83 +191,53 @@ function PeerSupportManage() {
               </div>
               <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="text-muted-foreground">Topic</dt>
-                  <dd className="font-semibold text-swag-navy">{request.category}</dd>
+                  <dt className="text-muted-foreground">Requested date</dt>
+                  <dd className="font-semibold text-swag-navy">{request.preferred_date}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Preferred</dt>
-                  <dd className="font-semibold text-swag-navy">
-                    {request.preferred_date} · {request.preferred_time}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Matched with</dt>
+                  <dt className="text-muted-foreground">Mentor</dt>
                   <dd className="font-semibold text-swag-navy">
                     {request.assigned_mentor_name || "Waiting for a mentor"}
                   </dd>
                 </div>
               </dl>
-              {request.session_start && (
+              {request.session_start && request.session_end && (
                 <div className="mt-5 rounded-xl border border-swag-green/35 bg-swag-green/5 p-4">
-                  <p className="font-bold text-swag-navy">Confirmed session</p>
+                  <p className="font-bold text-swag-navy">Confirmed appointment</p>
                   <p className="mt-1 text-sm">
-                    {seoul.format(new Date(request.session_start))}
+                    {seoul.format(new Date(request.session_start))}–
+                    {time.format(new Date(request.session_end))}
                     {request.session_label ? ` · ${request.session_label}` : ""}
                     {request.session_location ? ` · ${request.session_location}` : ""}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Korea time</p>
                 </div>
               )}
             </section>
-            {request.status === "accepted" && (
-              <section className="paper-card border-swag-green/35 p-5 sm:p-7">
-                <h2 className="text-xl font-bold text-swag-navy">Choose a session time</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Times are shown in Asia/Seoul. Selecting a published slot confirms the session.
-                </p>
-                <div className="mt-4 grid gap-3">
-                  {slots.length ? (
-                    slots.map((slot) => (
-                      <button
-                        key={slot.slot_id}
-                        disabled={busy}
-                        onClick={() => void schedule(slot.slot_id)}
-                        className="flex min-h-14 items-center justify-between rounded-xl border border-border bg-card px-4 text-left hover:border-swag-green disabled:opacity-60"
-                      >
-                        <span>
-                          <span className="block font-semibold text-swag-navy">
-                            {seoul.format(new Date(slot.start_at))}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {slot.time_label || "Available time"}
-                            {slot.location ? ` · ${slot.location}` : ""}
-                          </span>
-                        </span>
-                        <CalendarClock className="h-5 w-5 text-swag-green" />
-                      </button>
-                    ))
-                  ) : (
-                    <p className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
-                      Waiting for a suitable time. Your assigned mentor has not published an
-                      available slot yet.
-                    </p>
-                  )}
-                </div>
-              </section>
+            {notice && (
+              <p className="rounded-lg border border-swag-green/35 p-3 text-sm text-swag-navy">
+                {notice}
+              </p>
             )}
             {error && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <p className="rounded-lg border border-destructive/30 p-3 text-sm text-destructive">
                 {error}
               </p>
             )}
-            {!["completed", "cancelled", "escalated"].includes(request.status) && (
-              <button
-                disabled={busy}
-                onClick={() => void cancel()}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-destructive/30 px-4 text-sm font-semibold text-destructive disabled:opacity-60"
-              >
-                <XCircle className="h-4 w-4" />
-                Cancel request
-              </button>
+            {!["completed", "cancelled", "no_show", "escalated"].includes(request.status) && (
+              <div>
+                <button
+                  disabled={busy}
+                  onClick={() => void cancel()}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-destructive/30 px-4 text-sm font-semibold text-destructive disabled:opacity-60"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancel appointment
+                </button>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  The schedule will be cancelled and no separate cancellation email will be sent.
+                </p>
+              </div>
             )}
             <p className="text-sm text-muted-foreground">
               This online service is not an emergency channel. If someone is in immediate danger,

@@ -53,6 +53,7 @@ const child = spawn("npm", ["run", "dev", "--", ...process.argv.slice(2)], {
     TURNSTILE_HOSTNAMES: "localhost,127.0.0.1",
     PEER_INTAKE_ENABLED: "true",
     PEER_INTAKE_GATEWAY_SECRET: gatewaySecret,
+    EMAIL_MODE: "disabled",
   },
   stdio: "inherit",
 });

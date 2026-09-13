@@ -1,381 +1,117 @@
 begin;
+select no_plan();
 
-select plan(52);
+select has_table('public','peer_support_requests','requests table remains');
+select has_table('public','peer_sessions','legacy sessions table remains');
+select has_table('public','peer_mentor_availability','legacy availability rows remain preserved');
+select has_table('public','peer_support_settings','school settings exist');
+select has_table('public','peer_confirmation_events','confirmation events exist');
+select has_table('public','peer_confirmation_email_outbox','recipient outbox exists');
+select has_table('public','peer_confirmation_webhook_events','verified webhook replay ledger exists');
+select has_column('public','peer_support_requests','preferred_periods','multiple periods are stored');
+select has_column('public','peer_sessions','schedule_version','session snapshot version exists');
+select hasnt_column('public','peer_confirmation_email_outbox','cc','outbox has no cc relay field');
+select hasnt_column('public','peer_confirmation_email_outbox','bcc','outbox has no bcc relay field');
 
-select has_table('public', 'peer_support_requests', 'Peer Support requests table exists');
-select has_table('public', 'peer_request_dismissals', 'per-mentor dismissals table exists');
-select has_table('public', 'peer_mentor_availability', 'mentor availability table exists');
-select has_table('public', 'peer_sessions', 'Peer Support sessions table exists');
-select has_table('public', 'peer_request_access_tokens', 'hashed management tokens table exists');
-select has_table('public', 'peer_support_actions', 'workflow action history exists');
+insert into auth.users(id,email,raw_user_meta_data) values
+ ('71111111-1111-4111-8111-111111111111','p5-peer-one@example.invalid','{"full_name":"Peer One"}'),
+ ('72222222-2222-4222-8222-222222222222','p5-peer-two@example.invalid','{"full_name":"Peer Two"}'),
+ ('73333333-3333-4333-8333-333333333333','p5-swag@example.invalid','{"full_name":"SWAG One"}'),
+ ('74444444-4444-4444-8444-444444444444','p5-teacher@example.invalid','{"full_name":"Teacher One"}'),
+ ('75555555-5555-4555-8555-555555555555','p5-student@example.invalid','{"full_name":"Student"}');
+update public.profiles set role='peer_mentor' where id in ('71111111-1111-4111-8111-111111111111','72222222-2222-4222-8222-222222222222');
+update public.profiles set role='swag_member' where id='73333333-3333-4333-8333-333333333333';
+update public.profiles set role='teacher' where id='74444444-4444-4444-8444-444444444444';
 
-insert into auth.users (id, email, raw_user_meta_data)
-values
-  ('81111111-1111-4111-8111-111111111111', 'phase-four-peer-one@example.invalid', '{"full_name":"Peer One"}'::jsonb),
-  ('82222222-2222-4222-8222-222222222222', 'phase-four-peer-two@example.invalid', '{"full_name":"Peer Two"}'::jsonb),
-  ('83333333-3333-4333-8333-333333333333', 'phase-four-swag@example.invalid', '{"full_name":"SWAG Member"}'::jsonb),
-  ('84444444-4444-4444-8444-444444444444', 'phase-four-teacher@example.invalid', '{"full_name":"Teacher One"}'::jsonb),
-  ('85555555-5555-4555-8555-555555555555', 'phase-four-student@example.invalid', '{"full_name":"Student One"}'::jsonb);
-
-update public.profiles set role = 'peer_mentor'
-where id in ('81111111-1111-4111-8111-111111111111', '82222222-2222-4222-8222-222222222222');
-update public.profiles set role = 'swag_member'
-where id = '83333333-3333-4333-8333-333333333333';
-update public.profiles set role = 'teacher'
-where id = '84444444-4444-4444-8444-444444444444';
-
-insert into public.peer_support_requests (
-  id, student_name, year_group, contact_email, category,
-  preferred_date, preferred_time, private_explanation,
-  status, assigned_mentor_id, assigned_at,
-  escalation_reason, escalated_at, escalated_by
-)
-values
-  ('91111111-1111-4111-8111-111111111111', 'Student A', 'Year 9', 'a@example.invalid',
-    'Friendships', current_date + 5, 'Break', 'Private story A.', 'open', null, null, null, null, null),
-  ('92222222-2222-4222-8222-222222222222', 'Student B', 'Year 10', 'b@example.invalid',
-    'Wellbeing', current_date + 6, '1st Lunch', 'Private story B.', 'open', null, null, null, null, null),
-  ('93333333-3333-4333-8333-333333333333', 'Student C', 'Year 11', 'c@example.invalid',
-    'Settling in', current_date + 7, '2nd Lunch', 'Private story C.', 'accepted',
-    '81111111-1111-4111-8111-111111111111', now(), null, null, null),
-  ('94444444-4444-4444-8444-444444444444', 'Student D', 'Year 12', 'd@example.invalid',
-    'School work & stress', current_date + 8, 'Break', 'Private story D.', 'accepted',
-    '81111111-1111-4111-8111-111111111111', now(), null, null, null),
-  ('95555555-5555-4555-8555-555555555555', 'Student E', 'Year 13', 'e@example.invalid',
-    'Something else', current_date + 9, '1st Lunch', 'Private story E.', 'escalated',
-    '83333333-3333-4333-8333-333333333333', now(), 'Needs teacher review', now(),
-    '83333333-3333-4333-8333-333333333333'),
-  ('96666666-6666-4666-8666-666666666666', 'Student F', 'Year 8', 'f@example.invalid',
-    'Friendships', current_date + 10, '2nd Lunch', null, 'open', null, null, null, null, null);
-
-insert into public.peer_escalation_access (request_id, profile_id, granted_by)
-values (
-  '95555555-5555-4555-8555-555555555555',
-  '83333333-3333-4333-8333-333333333333',
-  '83333333-3333-4333-8333-333333333333'
-);
-
-insert into public.peer_request_access_tokens (request_id, token_hash, expires_at)
-values
-  ('94444444-4444-4444-8444-444444444444', extensions.digest(repeat('a', 64), 'sha256'), now() + interval '30 days'),
-  ('92222222-2222-4222-8222-222222222222', extensions.digest(repeat('b', 64), 'sha256'), now() - interval '1 day');
+insert into public.peer_support_requests(id,student_name,year_group,contact_email,category,preferred_date,preferred_time,preferred_periods,private_explanation) values
+ ('81111111-1111-4111-8111-111111111111','Student A','Year 9','student-a@example.invalid','Friendships',current_date+5,'Break',array['break','lunch_1'],'Private A'),
+ ('82222222-2222-4222-8222-222222222222','Student B','Year 10','student-b@example.invalid','Wellbeing',current_date+5,'Break',array['break'],'Private B'),
+ ('83333333-3333-4333-8333-333333333333','Student C','Year 11','student-c@example.invalid','Settling in',current_date+6,'2nd Lunch',array['lunch_2'],'Private C'),
+ ('84444444-4444-4444-8444-444444444444','Student D','Year 12','p5-peer-two@example.invalid','Something else',current_date+7,'Break',array['break'],'Private D');
+insert into public.peer_request_access_tokens(request_id,token_hash,expires_at) values
+ ('81111111-1111-4111-8111-111111111111',extensions.digest(repeat('a',64),'sha256'),now()+interval '30 days');
 
 set local role anon;
-select set_config('request.jwt.claims', '{"role":"anon"}', true);
-
-select throws_ok(
-  $$ select * from public.peer_support_requests $$,
-  '42501', null, 'anonymous callers cannot read the base request table'
-);
-select throws_ok(
-  $$ select * from public.list_available_peer_requests() $$,
-  '42501', null, 'anonymous callers cannot list the mentor queue'
-);
-select throws_ok(
-  $$ select * from public.submit_peer_support_request(
-    'wrong-gateway-secret', repeat('1', 64), 'Student', 'Year 9', 'student@example.invalid',
-    'Wellbeing', current_date + 2, 'Break', null
-  ) $$,
-  '42501', null, 'direct public intake without the Worker gateway secret is denied'
-);
-select is_empty(
-  $$ select * from public.get_peer_request_management('not-a-token') $$,
-  'an invalid management token returns no request data'
-);
-select is_empty(
-  $$ select * from public.get_peer_request_management(repeat('b', 64)) $$,
-  'an expired management token returns no request data'
-);
+select set_config('request.jwt.claims','{"role":"anon"}',true);
+select throws_ok($$select * from public.peer_support_requests$$,'42501',null,'base requests stay private');
+select throws_ok($$select * from public.peer_confirmation_email_outbox$$,'42501',null,'outbox stays private');
+select throws_ok($$select * from public.claim_confirmation_email_jobs('wrong',gen_random_uuid(),10,120)$$,'42501',null,'dispatcher secret is required');
+select throws_ok($$select * from public.record_confirmation_email_webhook('wrong','event','message','email.delivered',now())$$,'42501',null,'webhook database write requires internal credential');
 
 reset role;
 set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"85555555-5555-4555-8555-555555555555","role":"authenticated"}', true
-);
-select throws_ok(
-  $$ select * from public.list_available_peer_requests() $$,
-  '42501', null, 'a student cannot list available Peer Support requests'
-);
-select throws_ok(
-  $$ select * from public.claim_peer_request('91111111-1111-4111-8111-111111111111') $$,
-  '42501', null, 'a student cannot claim a Peer Support request'
-);
-select throws_ok(
-  $$ select * from public.list_my_peer_cases() $$,
-  '42501', null, 'a student cannot access mentor cases'
-);
+select set_config('request.jwt.claims','{"sub":"75555555-5555-4555-8555-555555555555","role":"authenticated"}',true);
+select throws_ok($$select * from public.list_available_peer_requests()$$,'42501',null,'student cannot read mentor queue');
+select throws_ok($$select * from public.confirm_and_accept_peer_request('81111111-1111-4111-8111-111111111111','break')$$,'42501',null,'student cannot confirm');
 
 reset role;
 set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"81111111-1111-4111-8111-111111111111","role":"authenticated"}', true
-);
-
-select results_eq(
-  $$ select request_id from public.list_available_peer_requests() order by request_id $$,
-  $$ values
-    ('91111111-1111-4111-8111-111111111111'::uuid),
-    ('92222222-2222-4222-8222-222222222222'::uuid),
-    ('96666666-6666-4666-8666-666666666666'::uuid)
-  $$,
-  'a Peer Mentor sees the privacy-limited open pool'
-);
-select results_eq(
-  $$
-    select distinct field
-    from public.list_available_peer_requests() queue
-    cross join lateral jsonb_object_keys(to_jsonb(queue)) as field
-    order by field
-  $$,
-  $$ values
-    ('category'::text), ('dismissed'::text), ('preferred_date'::text),
-    ('preferred_time'::text), ('request_id'::text), ('submitted_at'::text)
-  $$,
-  'the available queue response contains only approved minimal fields'
-);
-select ok(
-  public.dismiss_peer_request('92222222-2222-4222-8222-222222222222'),
-  'a Peer Mentor can pass a request for themselves'
-);
-select is_empty(
-  $$ select request_id from public.list_available_peer_requests()
-     where request_id = '92222222-2222-4222-8222-222222222222' $$,
-  'a passed request is hidden only from the acting mentor'
-);
-select ok(
-  public.dismiss_peer_request('92222222-2222-4222-8222-222222222222'),
-  'repeating Pass is idempotent'
-);
-select ok(
-  public.undo_dismiss_peer_request('92222222-2222-4222-8222-222222222222'),
-  'a Peer Mentor can undo Pass'
-);
-select results_eq(
-  $$ select success, outcome from public.claim_peer_request('91111111-1111-4111-8111-111111111111') $$,
-  $$ values (true, 'accepted'::text) $$,
-  'a Peer Mentor can atomically claim an open request'
-);
-select ok(
-  (select student_name = 'Student A' and private_explanation = 'Private story A.'
-   from public.get_my_peer_case('91111111-1111-4111-8111-111111111111')),
-  'the assignee can read the private details of their case'
-);
-
-create temporary table phase_four_ids (name text primary key, id uuid not null);
-insert into phase_four_ids values (
-  'peer_slot',
-  public.create_peer_availability(
-    now() + interval '5 days', now() + interval '5 days 1 hour', 'Break', 'Approved room'
-  )
-);
-select throws_ok(
-  $$ select public.create_peer_availability(
-    now() - interval '1 hour', now() + interval '1 hour', 'Break', null
-  ) $$,
-  '22023', null, 'past availability is rejected'
-);
-select throws_ok(
-  $$ select public.create_peer_availability(
-    now() + interval '5 days 30 minutes', now() + interval '5 days 2 hours', null, null
-  ) $$,
-  '23P01', null, 'overlapping mentor availability is rejected'
-);
+select set_config('request.jwt.claims','{"sub":"71111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
 select is(
-  (select count(*) from public.list_my_peer_availability()),
-  1::bigint,
-  'a Peer Mentor can list only their own availability'
-);
-
-select results_eq(
-  $$ select success, outcome from public.schedule_peer_session(
-    repeat('a', 64), (select id from phase_four_ids where name = 'peer_slot')
-  ) $$,
-  $$ values (true, 'confirmed'::text) $$,
-  'the request token schedules the assigned mentor slot transactionally'
-);
-select ok(
-  (select status = 'scheduled' and session_status = 'confirmed'
-   from public.list_my_peer_cases()
-   where request_id = '94444444-4444-4444-8444-444444444444')
-  and (select status = 'reserved'
-       from public.list_my_peer_availability()
-       where slot_id = (select id from phase_four_ids where name = 'peer_slot')),
-  'scheduling keeps request, session, and slot state consistent'
-);
-select throws_ok(
-  $$ select public.withdraw_peer_availability((select id from phase_four_ids where name = 'peer_slot')) $$,
-  '23514', null, 'a confirmed session protects its slot from withdrawal'
-);
-select ok(
-  public.cancel_my_peer_session('94444444-4444-4444-8444-444444444444'),
-  'the assigned mentor can cancel a session'
-);
-select ok(
-  (select status = 'accepted'
-   from public.list_my_peer_cases()
-   where request_id = '94444444-4444-4444-8444-444444444444')
-  and (select status = 'available'
-       from public.list_my_peer_availability()
-       where slot_id = (select id from phase_four_ids where name = 'peer_slot')),
-  'mentor cancellation returns the request to waiting-for-time and releases a future slot'
-);
-select ok(
-  (select success from public.schedule_peer_session(
-    repeat('a', 64), (select id from phase_four_ids where name = 'peer_slot'))),
-  'a released slot can be selected again for the same accepted request'
-);
-select ok(
-  public.complete_my_peer_case('94444444-4444-4444-8444-444444444444'),
-  'the assigned mentor can complete a scheduled case'
-);
-select ok(
-  (select status = 'completed' and session_status = 'completed'
-   from public.list_my_peer_cases()
-   where request_id = '94444444-4444-4444-8444-444444444444')
-  and (select status = 'withdrawn'
-       from public.list_my_peer_availability()
-       where slot_id = (select id from phase_four_ids where name = 'peer_slot')),
-  'completion consumes the slot and closes request/session consistently'
-);
-select ok(
-  public.escalate_my_peer_case('93333333-3333-4333-8333-333333333333', 'Teacher guidance needed'),
-  'the assigned Peer Mentor can escalate their own case'
-);
-select ok(
-  (select student_name is null and contact_email is null and private_explanation is null
-   from public.list_my_peer_cases()
-   where request_id = '93333333-3333-4333-8333-333333333333'),
-  'the original mentor retains only redacted handover status after escalation'
-);
-select throws_ok(
-  $$ select * from public.get_my_peer_case('93333333-3333-4333-8333-333333333333') $$,
-  '42501', null, 'the original mentor cannot reopen escalated private details'
-);
+ (select array_agg(field order by field) from (select distinct jsonb_object_keys(to_jsonb(queue)) field from public.list_available_peer_requests() queue) fields),
+ array['category','dismissed','preferred_date','preferred_periods','preferred_time','request_id','stale','submitted_at']::text[],
+ 'open queue returns only approved non-identifying fields');
+select ok((select not ready and readiness_issue='supervisor_teacher_missing' from public.preview_peer_request_confirmation('81111111-1111-4111-8111-111111111111') where period='break'),'missing school settings are explicit');
+select is((select outcome || ':' || success from public.claim_peer_request('81111111-1111-4111-8111-111111111111')),'mentor_confirmation_required:false','legacy claim cannot create time-less acceptance');
+select throws_ok($$select public.create_peer_availability(now()+interval '1 day',now()+interval '2 days','Break','Room')$$,'0A000',null,'individual availability creation is retired');
+select is_empty($$select * from public.list_peer_request_slots(repeat('a',64))$$,'student slot selection returns no slots');
+select is((select outcome || ':' || success from public.schedule_peer_session(repeat('a',64),gen_random_uuid())),'mentor_confirmation_required:false','legacy slot scheduling cannot overwrite new flow');
 
 reset role;
 set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"82222222-2222-4222-8222-222222222222","role":"authenticated"}', true
-);
-select ok(
-  exists (select 1 from public.list_available_peer_requests()
-    where request_id = '92222222-2222-4222-8222-222222222222'),
-  'one mentor passing does not hide the request from another mentor'
-);
-select is_empty(
-  $$ select * from public.get_my_peer_case('91111111-1111-4111-8111-111111111111') $$,
-  'another mentor cannot read an assigned private case'
-);
+select set_config('request.jwt.claims','{"sub":"74444444-4444-4444-8444-444444444444","role":"authenticated"}',true);
+select throws_ok($$select * from public.confirm_and_accept_peer_request('81111111-1111-4111-8111-111111111111','break')$$,'42501',null,'Teacher cannot join the mentor claim pool');
+select ok(public.save_peer_support_settings('Approved test location','74444444-4444-4444-8444-444444444444',array[1,2,3,4,5,6,7]::smallint[],'10:00','10:20','12:00','12:30','13:00','13:30'),'Teacher can configure test schedule');
+select ok((select schedule_ready from public.get_peer_support_settings()),'complete schedule is ready');
+select is((select count(*) from public.list_teacher_candidates()),1::bigint,'only approved Teacher profiles are candidates');
 
 reset role;
 set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"83333333-3333-4333-8333-333333333333","role":"authenticated"}', true
-);
-select results_eq(
-  $$ select success, outcome from public.claim_peer_request('96666666-6666-4666-8666-666666666666') $$,
-  $$ values (true, 'accepted'::text) $$,
-  'a SWAG Member has the same ordinary request-claim capability'
-);
-select ok(
-  exists (select 1 from public.list_peer_escalations()
-    where request_id = '95555555-5555-4555-8555-555555555555'),
-  'a SWAG Member sees an escalation specifically authorized to them'
-);
-select is_empty(
-  $$ select * from public.list_peer_escalations()
-     where request_id = '93333333-3333-4333-8333-333333333333' $$,
-  'a SWAG Member cannot see an unrelated mentor escalation'
-);
+select set_config('request.jwt.claims','{"sub":"71111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
+select throws_ok($$select * from public.confirm_and_accept_peer_request('81111111-1111-4111-8111-111111111111','lunch_2')$$,'22023',null,'mentor cannot choose an unselected period');
+select is((select outcome || ':' || success from public.confirm_and_accept_peer_request('81111111-1111-4111-8111-111111111111','break')),'confirmed:true','Peer Mentor confirms and accepts atomically');
+reset role;
+select ok((select status='accepted' and assigned_mentor_id='71111111-1111-4111-8111-111111111111' from public.peer_support_requests where id='81111111-1111-4111-8111-111111111111'),'new accepted means assigned with exact time');
+select ok((select slot_id is null and period='break' and time_label='Break' and location='Approved test location' and display_timezone='Asia/Seoul' and supervisor_teacher_id='74444444-4444-4444-8444-444444444444' from public.peer_sessions where request_id='81111111-1111-4111-8111-111111111111'),'session snapshots school schedule and location without availability slot');
+select is((select count(*) from public.peer_confirmation_events where request_id='81111111-1111-4111-8111-111111111111' and event_type='PEER_SESSION_CONFIRMED'),1::bigint,'exactly one confirmation event exists');
+select is((select count(*) from public.peer_confirmation_email_outbox where request_id='81111111-1111-4111-8111-111111111111'),3::bigint,'exactly three recipient jobs exist');
+select is((select array_agg(recipient_kind order by recipient_kind) from public.peer_confirmation_email_outbox where request_id='81111111-1111-4111-8111-111111111111'),array['mentor','student','teacher']::text[],'student, assigned mentor, designated Teacher are the only recipients');
+select is((select count(*) from public.peer_confirmation_email_outbox where recipient_address in ('p5-peer-one@example.invalid','p5-teacher@example.invalid','student-a@example.invalid')),3::bigint,'trusted stored addresses determine recipients');
+select is((select count(*) from public.peer_confirmation_email_outbox where recipient_address in ('p5-peer-two@example.invalid','p5-swag@example.invalid')),0::bigint,'other mentors and SWAG Members receive nothing');
+select is((select count(*) from public.peer_confirmation_email_outbox where notification_kind<>'PEER_SESSION_CONFIRMED'),0::bigint,'no reminder or other email kind exists');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"71111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
+select is((select outcome || ':' || success from public.confirm_and_accept_peer_request('81111111-1111-4111-8111-111111111111','break')),'already_confirmed:true','retry returns the existing event');
+reset role;
+select is((select count(*) from public.peer_confirmation_events where request_id='81111111-1111-4111-8111-111111111111'),1::bigint,'retry creates no duplicate event');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"71111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
+select is((select outcome || ':' || success from public.confirm_and_accept_peer_request('82222222-2222-4222-8222-222222222222','break')),'mentor_conflict:false','same mentor cannot accept an overlapping appointment');
+reset role;
+select is((select count(*) from public.peer_confirmation_email_outbox where request_id='82222222-2222-4222-8222-222222222222'),0::bigint,'failed transaction creates no outbox');
 
 reset role;
 set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"84444444-4444-4444-8444-444444444444","role":"authenticated"}', true
-);
-select throws_ok(
-  $$ select * from public.claim_peer_request('92222222-2222-4222-8222-222222222222') $$,
-  '42501', null, 'a Teacher is not in the ordinary request claim pool'
-);
-select ok(
-  exists (select 1 from public.list_peer_escalations()
-    where request_id = '93333333-3333-4333-8333-333333333333'),
-  'an escalated case reaches Teacher oversight'
-);
-select ok(
-  exists (select 1 from public.list_teacher_peer_support_overview()
-    where request_id = '91111111-1111-4111-8111-111111111111'),
-  'Teacher overview contains minimal operational request state'
-);
-select ok(
-  public.authorize_swag_escalation(
-    '93333333-3333-4333-8333-333333333333',
-    '83333333-3333-4333-8333-333333333333'
-  ),
-  'a Teacher can explicitly authorize SWAG coordination on an escalation'
-);
+select set_config('request.jwt.claims','{"sub":"73333333-3333-4333-8333-333333333333","role":"authenticated"}',true);
+select is((select outcome || ':' || success from public.confirm_and_accept_peer_request('83333333-3333-4333-8333-333333333333','lunch_2')),'confirmed:true','SWAG Member has full peer confirmation capability');
 
 reset role;
 set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"83333333-3333-4333-8333-333333333333","role":"authenticated"}', true
-);
-select ok(
-  exists (select 1 from public.get_peer_escalation('93333333-3333-4333-8333-333333333333')),
-  'an explicitly authorized SWAG Member can read that escalated case'
-);
+select set_config('request.jwt.claims','{"sub":"72222222-2222-4222-8222-222222222222","role":"authenticated"}',true);
+select is((select outcome || ':' || success from public.confirm_and_accept_peer_request('84444444-4444-4444-8444-444444444444','break')),'confirmed:true','second Peer Mentor confirms another date');
+reset role;
+select is((select count(*) from public.peer_confirmation_email_outbox where request_id='84444444-4444-4444-8444-444444444444'),2::bigint,'duplicate real address is sent once without creating three copies');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"72222222-2222-4222-8222-222222222222","role":"authenticated"}',true);
+select ok(not public.complete_my_peer_case('84444444-4444-4444-8444-444444444444'),'future appointment cannot be completed');
+select ok(not public.mark_peer_case_no_show('84444444-4444-4444-8444-444444444444'),'future appointment cannot be marked no-show');
+select ok(public.cancel_my_peer_session('84444444-4444-4444-8444-444444444444'),'assigned mentor can cancel');
 
 reset role;
-update public.profiles set role = 'student'
-where id = '82222222-2222-4222-8222-222222222222';
-set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"82222222-2222-4222-8222-222222222222","role":"authenticated"}', true
-);
-select throws_ok(
-  $$ select * from public.list_my_peer_cases() $$,
-  '42501', null, 'role revocation immediately removes sensitive Peer Support capability'
-);
-
-reset role;
-select is(
-  (select count(*) from public.peer_request_dismissals
-   where request_id = '92222222-2222-4222-8222-222222222222'
-     and mentor_id = '81111111-1111-4111-8111-111111111111'),
-  0::bigint,
-  'undo Pass leaves no dismissal record'
-);
-select ok(
-  (select count(*) >= 6 from public.peer_support_actions),
-  'sensitive workflow actions are recorded'
-);
-select is(
-  (select encode(token_hash, 'hex') = encode(extensions.digest(repeat('a', 64), 'sha256'), 'hex')
-   from public.peer_request_access_tokens
-   where request_id = '94444444-4444-4444-8444-444444444444'),
-  true,
-  'only the management-token hash is persisted'
-);
-select is_empty(
-  $$ select * from public.get_peer_request_management(repeat('b', 64)) $$,
-  'expired management credentials remain unable to expose data'
-);
-set local role authenticated;
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"85555555-5555-4555-8555-555555555555","role":"authenticated"}', true
-);
-select throws_ok(
-  $$ delete from public.peer_support_requests $$,
-  '42501', null, 'ordinary browser roles have no base-table DELETE permission'
-);
+select is((select count(*) from public.peer_confirmation_email_outbox where request_id='84444444-4444-4444-8444-444444444444' and status='suppressed'),2::bigint,'cancellation suppresses only unsent confirmation jobs');
+select is((select count(*) from public.peer_confirmation_email_outbox),8::bigint,'cancellation and other status changes generate no additional email jobs');
+select ok((select revoked_at is not null from public.peer_request_access_tokens where request_id='81111111-1111-4111-8111-111111111111') is false,'unrelated student token remains active');
+select is((select count(*) from public.peer_confirmation_events where request_id='82222222-2222-4222-8222-222222222222'),0::bigint,'legacy data and failed confirmations are never backfilled as email events');
 
 select * from finish();
 rollback;

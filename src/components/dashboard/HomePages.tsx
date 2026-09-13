@@ -187,7 +187,7 @@ export function TeacherPeerOverview() {
                 </span>
                 <h2 className="mt-2 font-bold text-swag-navy">{row.category}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {row.assigned ? "Assigned" : "Unassigned"}
+                  {row.mentor_name ? "Assigned" : "Unassigned"}
                 </p>
               </div>
               <p className="text-sm text-muted-foreground">

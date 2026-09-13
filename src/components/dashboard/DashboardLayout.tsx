@@ -7,25 +7,21 @@ const PEER_NAV: DashboardNavItem[] = [
   { label: "Home", to: "/peer-mentor/dashboard" },
   { label: "Available Requests", to: "/peer-mentor/requests" },
   { label: "My Cases", to: "/peer-mentor/cases" },
-  { label: "My Sessions", to: "/peer-mentor/sessions" },
-  { label: "My Availability", to: "/peer-mentor/availability" },
 ];
 
 const SWAG_NAV: DashboardNavItem[] = [
   { label: "Home", to: "/swag/dashboard" },
   { label: "Available Requests", to: "/swag/requests" },
   { label: "My Cases", to: "/swag/cases" },
-  { label: "My Sessions", to: "/swag/sessions" },
-  { label: "My Availability", to: "/swag/availability" },
   { label: "Concerns", to: "/swag/concerns" },
   { label: "Escalations", to: "/swag/escalations" },
 ];
 
 const TEACHER_NAV: DashboardNavItem[] = [
   { label: "Home", to: "/teacher/dashboard" },
+  { label: "Peer Support Overview", to: "/teacher/peer-support" },
   { label: "Concerns", to: "/teacher/concerns" },
   { label: "Escalations", to: "/teacher/escalations" },
-  { label: "Peer Support Overview", to: "/teacher/peer-support" },
   { label: "Bookings", to: "/teacher/bookings" },
 ];
 

@@ -52,7 +52,7 @@ export function FormStep({
 }) {
   return (
     <form
-      className="paper-card mx-auto max-w-xl p-6 sm:p-8"
+      className="paper-card mx-auto w-full min-w-0 max-w-xl overflow-hidden p-6 sm:p-8"
       onSubmit={(e) => {
         e.preventDefault();
         onNext();
@@ -61,7 +61,7 @@ export function FormStep({
     >
       <StepProgress step={step} total={total} label={title} />
       <h2 className="text-xl font-bold text-swag-navy">{title}</h2>
-      <div className="mt-6 space-y-5">{children}</div>
+      <div className="mt-6 min-w-0 space-y-5">{children}</div>
       {submitError && (
         <p className="mt-4 text-xs font-medium text-destructive" role="alert">
           {submitError}

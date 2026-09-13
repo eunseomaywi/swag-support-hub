@@ -1,21 +1,25 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "swag-support-hub",
-  "compatibility_date": "2026-09-10",
+  "compatibility_date": "2026-09-13",
   "compatibility_flags": ["nodejs_compat"],
   "main": ".output/server/index.mjs",
   "assets": {
     "binding": "ASSETS",
-    "directory": ".output/public"
+    "directory": ".output/public",
   },
   "no_bundle": true,
   "rules": [
     {
       "type": "ESModule",
-      "globs": ["**/*.mjs", "**/*.js"]
-    }
+      "globs": ["**/*.mjs", "**/*.js"],
+    },
   ],
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"],
+  },
 }

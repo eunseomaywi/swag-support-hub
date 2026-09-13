@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isAppRole, type AppRole, type Profile } from "@/lib/auth";
 import { AuthContext, type AuthContextValue, type SignInResult } from "@/lib/auth-context";
@@ -20,12 +21,14 @@ function asProfile(value: unknown): Profile | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const requestId = useRef(0);
   const signInInProgress = useRef(false);
+  const activeUserId = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     const currentRequest = ++requestId.current;
@@ -54,6 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const applySession = useCallback(
     async (nextSession: Session | null) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      if (activeUserId.current !== nextUserId) {
+        queryClient.clear();
+        activeUserId.current = nextUserId;
+      }
       setSession(nextSession);
 
       if (!nextSession) {
@@ -69,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return nextProfile;
     },
-    [loadProfile],
+    [loadProfile, queryClient],
   );
 
   useEffect(() => {
@@ -143,13 +151,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await getSupabaseClient().auth.signOut({ scope: "local" });
     } finally {
+      queryClient.clear();
+      activeUserId.current = null;
       requestId.current += 1;
       setSession(null);
       setProfile(null);
       setProfileError(null);
       setLoading(false);
     }
-  }, []);
+  }, [queryClient]);
 
   const refreshProfile = useCallback(async () => {
     if (!session?.user.id) return null;

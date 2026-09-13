@@ -5,7 +5,7 @@ export type BookingSubmission = {
   yearGroup: string;
   email: string;
   preferredDate: string;
-  preferredTime: string;
+  preferredPeriods: string[];
   topic: string;
   additionalInfo: string;
 };
@@ -28,7 +28,7 @@ export async function submitBooking(data: BookingSubmission): Promise<void> {
       year_group: data.yearGroup,
       email: data.email.trim(),
       preferred_date: data.preferredDate,
-      preferred_time: data.preferredTime,
+      preferred_time: data.preferredPeriods[0] || "",
       topic: data.topic,
       additional_info: data.additionalInfo.trim() || null,
     });

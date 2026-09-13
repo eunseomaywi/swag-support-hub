@@ -10,7 +10,7 @@ export function PageSection({
   children: ReactNode;
 }) {
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <main className="mx-auto w-full min-w-0 max-w-6xl overflow-x-hidden px-4 py-10 sm:px-6 sm:py-14">
       <h1 className="sketch-underline inline-block text-3xl font-bold text-swag-navy sm:text-4xl">
         {title}
       </h1>
@@ -19,7 +19,7 @@ export function PageSection({
           {intro}
         </div>
       )}
-      <div className="mt-10">{children}</div>
+      <div className="mt-10 min-w-0">{children}</div>
     </main>
   );
 }
