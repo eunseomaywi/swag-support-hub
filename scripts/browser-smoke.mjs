@@ -5,6 +5,7 @@ import WebSocket from "ws";
 
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const origin = process.env.SWAG_BROWSER_ORIGIN || "http://127.0.0.1:5173";
+const expectIntakeDisabled = process.env.SWAG_EXPECT_INTAKE_DISABLED === "true";
 const port = 9300 + Math.floor(Math.random() * 400);
 const profile = `/private/tmp/swag-phase5-cdp-${port}`;
 const fixturePath = process.env.SWAG_BROWSER_FIXTURE_PATH;
@@ -137,15 +138,18 @@ try {
     title: document.querySelector('h1')?.textContent,
     inputs: [...document.querySelectorAll('label')].map((node) => node.textContent?.trim()),
     menu: Boolean(document.querySelector('[aria-label="Open menu"]')),
-    footer: document.body.innerText.includes('website by @eunseowi')
+    footer: document.body.innerText.includes('website by @eunseowi'),
+    intakeDisabled: document.body.innerText.includes('Peer Support requests are not open yet')
   })`);
   assert(mobile.width === 390, "Mobile CSS viewport was not 390px");
   assert(mobile.scrollWidth <= mobile.width, "Booking page has horizontal overflow at 390px");
   assert(mobile.title === "Peer Support Request", "Booking page heading is missing");
-  assert(
-    mobile.inputs.some((label) => label === "Name"),
-    "Booking form did not load",
-  );
+  if (expectIntakeDisabled) assert(mobile.intakeDisabled, "Closed intake state was not shown");
+  else
+    assert(
+      mobile.inputs.some((label) => label === "Name"),
+      "Booking form did not load",
+    );
   assert(mobile.menu && mobile.footer, "Mobile menu or footer is missing");
   await screenshot("/private/tmp/swag-phase5-booking-mobile-cdp.png");
   await evaluate(`document.querySelector('[aria-label="Open menu"]')?.click()`);

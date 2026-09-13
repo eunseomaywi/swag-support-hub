@@ -47,13 +47,18 @@
 - ESLint: PASS, 기존 UI Fast Refresh warning 6건
 - production build: PASS; SWAG Supabase ref만 포함하고 local/test fixture 값이 없음을 scan
 - build fail-fast: 필수 Vite 변수 없이 validator가 의도대로 실패함을 확인
+- production HTTP/API smoke: PASS (public/login/booking/management/protected routes, no-store,
+  management GET 405, unauthenticated dispatch 401, unconfigured webhook 503, closed intake 503)
+- production browser: 12 checks, PASS (1440px desktop와 390px mobile)
 
 ## 원격/배포 식별자
 
 - Supabase project ref: `ezjvfrdakzyoaijucqij`
 - applied migrations: `20260913000100`, `20260913000200` (remote history 일치, post-push lint 0)
-- Git commit: 배포 단계에서 기록 예정
-- Cloudflare Worker version: 배포 단계에서 기록 예정
+- Git implementation commit: `269a1bd` (origin/main push 성공)
+- Cloudflare Worker version: `e803458e-3df9-4adb-a504-b9b13f45c696` (100% active)
+- production URL: `https://swag-support-hub.mymaywi.workers.dev`
+- public intake: `PEER_INTAKE_ENABLED` 기존 닫힘 상태 유지 (`enabled=false`)
 
 ## 남은 운영 설정
 
@@ -63,6 +68,8 @@ Teacher가 `/teacher/peer-support`에서 실제 Break/1st Lunch/2nd Lunch 시작
 설정하고 마지막에 `EMAIL_MODE=live`로 전환한다. 승인 수신자 없이 테스트 메일을 보내지 않는다.
 `EMAIL_DISPATCH_SECRET`과 `STUDENT_LINK_SECRET`은 기존 Worker encrypted secret으로 등록했으며
 임시 원본 파일은 삭제했다. provider/sender secret은 존재하지 않아 실제 발송은 계속 비활성 상태다.
+Cloudflare Email Sending 설정 조회는 현재 CLI 권한 오류로 검증하지 못했으며(`BLOCKED_AUTH`), 다른
+프로젝트나 개인 provider credential은 가져오지 않았다.
 
 ## Rollback 주의
 
