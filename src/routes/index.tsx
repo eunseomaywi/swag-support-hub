@@ -40,9 +40,15 @@ function Index() {
             SWAG is here to support your wellbeing and help you thrive at school.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <SwagLinkButton to="/what-is-swag">Learn More</SwagLinkButton>
-            <SwagLinkButton to="/form" variant="secondary">
-              Get Involved
+            <SwagLinkButton to="/form">Get Support</SwagLinkButton>
+            <SwagLinkButton to="/peer-mentor" variant="secondary">
+              Talk to a Peer
+            </SwagLinkButton>
+            <SwagLinkButton to="/form/concern" variant="secondary">
+              Share a Concern
+            </SwagLinkButton>
+            <SwagLinkButton to="/what-is-swag" variant="secondary">
+              Discover SWAG
             </SwagLinkButton>
           </div>
         </div>

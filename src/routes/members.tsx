@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageSection } from "@/components/PageSection";
-import { MemberCard } from "@/components/cards";
-import { members } from "@/data/swag";
+import { MemberGrid } from "@/components/public/MemberGrid";
+import { sortedPublicMembers } from "@/content/members";
+import { canonicalUrl } from "@/content/public-copy";
 
 export const Route = createFileRoute("/members")({
   head: () => ({
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/members")({
       { property: "og:title", content: "Meet the SWAG Members" },
       { property: "og:description", content: "The students behind SWAG and their roles." },
     ],
+    links: [{ rel: "canonical", href: canonicalUrl("/members") }],
   }),
   component: Members,
 });
@@ -22,20 +24,9 @@ function Members() {
   return (
     <PageSection
       title="Meet the SWAG Members"
-      intro="Member names, roles and photos will be added here soon."
+      intro="Meet the students who help make SWAG a welcoming, supportive part of school life. Profiles will appear here once they are approved for publication."
     >
-      <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        {members.map((m) => (
-          <MemberCard
-            key={m.id}
-            name={m.name}
-            role={m.role}
-            year={m.year}
-            {...(m.photoUrl ? { photoUrl: m.photoUrl } : {})}
-            {...(m.accent ? { accent: m.accent } : {})}
-          />
-        ))}
-      </div>
+      <MemberGrid members={sortedPublicMembers} />
     </PageSection>
   );
 }

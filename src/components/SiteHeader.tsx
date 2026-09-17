@@ -1,15 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
-
-const NAV = [
-  { to: "/", label: "Home", exact: true },
-  { to: "/what-is-swag", label: "What is SWAG?" },
-  { to: "/members", label: "Members" },
-  { to: "/activities", label: "Activities" },
-  { to: "/peer-mentor", label: "Peer Mentor" },
-  { to: "/form", label: "Form" },
-] as const;
+import { publicNavigation } from "@/content/public-copy";
+import { cn } from "@/lib/utils";
 
 const linkClass =
   "rounded-md px-1 py-1 text-sm text-muted-foreground transition-colors hover:text-swag-navy data-[status=active]:text-swag-navy data-[status=active]:font-semibold data-[status=active]:border-b-2 data-[status=active]:border-swag-blue";
@@ -34,12 +27,17 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
-          {NAV.map((item) => (
+          {publicNavigation.map((item) => (
             <Link
               key={item.to}
               to={item.to}
               activeOptions={{ exact: "exact" in item ? item.exact : false }}
-              className={linkClass}
+              className={cn(
+                linkClass,
+                "action" in item && item.action
+                  ? "border border-swag-blue/30 px-3 py-2 font-semibold text-swag-navy hover:border-swag-blue data-[status=active]:border-swag-blue data-[status=active]:bg-swag-blue/5"
+                  : "",
+              )}
             >
               {item.label}
             </Link>
@@ -64,7 +62,7 @@ export function SiteHeader() {
           aria-label="Main mobile"
           className="border-t border-border bg-background px-4 py-2 md:hidden"
         >
-          {NAV.map((item) => (
+          {publicNavigation.map((item) => (
             <Link
               key={item.to}
               to={item.to}
