@@ -1,5 +1,5 @@
 export const CONFIRMATION_EVENT = "PEER_SESSION_CONFIRMED" as const;
-export const CONFIRMATION_SUBJECT = "SWAG appointment confirmed";
+export const CONFIRMATION_SUBJECT = "Your SWAG Peer Support meeting details";
 
 export type ConfirmationRecipient = "student" | "mentor" | "teacher";
 
@@ -67,49 +67,51 @@ function appointmentText(job: ConfirmationJob): string {
   return `${dateFormatter.format(start)} · ${job.period_label} · ${timeFormatter.format(start)}–${timeFormatter.format(end)} Korea time · ${job.location}`;
 }
 
-function page(body: string, link: string, linkLabel: string): string {
-  return `<!doctype html><html lang="en"><body style="margin:0;background:#f8f7f2;color:#12213a;font-family:Arial,sans-serif"><div style="max-width:600px;margin:0 auto;padding:32px 20px"><div style="border:1px solid #bfd7ef;background:#fff;border-radius:14px;padding:28px"><p style="margin:0 0 16px;font-size:12px;font-weight:700;letter-spacing:.12em;color:#3278b7">SWAG PEER SUPPORT</p><h1 style="margin:0 0 20px;font-size:25px">Appointment confirmed</h1>${body}<p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 18px;border-radius:9px;background:#12213a;color:#fff;text-decoration:none;font-weight:700">${escapeHtml(linkLabel)}</a></p><p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#647084">This email contains scheduling information only. Please use the protected SWAG website for the latest status.</p></div></div></body></html>`;
+function page(body: string, link?: string, linkLabel?: string): string {
+  const action =
+    link && linkLabel
+      ? `<p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 18px;border-radius:9px;background:#12213a;color:#fff;text-decoration:none;font-weight:700">${escapeHtml(linkLabel)}</a></p>`
+      : "";
+  return `<!doctype html><html lang="en"><body style="margin:0;background:#f8f7f2;color:#12213a;font-family:Arial,sans-serif"><div style="max-width:600px;margin:0 auto;padding:32px 20px"><div style="border:1px solid #bfd7ef;background:#fff;border-radius:14px;padding:28px"><p style="margin:0 0 16px;font-size:12px;font-weight:700;letter-spacing:.12em;color:#3278b7">SWAG PEER SUPPORT</p><h1 style="margin:0 0 20px;font-size:25px">Meeting confirmed</h1>${body}${action}<p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#647084">This email contains scheduling information only. Please use the protected SWAG website for the latest status.</p></div></div></body></html>`;
 }
 
 export function renderConfirmationEmail(
   job: ConfirmationJob,
-  links: { student: string; mentor: string; teacher: string },
+  links: { mentor: string; teacher: string },
 ): RenderedConfirmation {
   const schedule = appointmentText(job);
   const mentorName = job.mentor_name?.trim() || "your assigned mentor";
   if (job.recipient_kind === "student") {
-    const text = `Your SWAG appointment is confirmed.\n\nMentor: ${mentorName}\n${schedule}\n\nCheck or cancel this appointment: ${links.student}`;
+    const text = `Your SWAG Peer Support meeting is confirmed.\n\nSupporter: ${mentorName}\n${schedule}\n\nUse the private management link you saved when submitting to check or cancel this meeting.`;
     return {
       to: job.recipient_address,
       subject: CONFIRMATION_SUBJECT,
       text,
       html: page(
-        `<p style="line-height:1.7">Your appointment with <strong>${escapeHtml(mentorName)}</strong> is confirmed.</p><p style="line-height:1.7"><strong>${escapeHtml(schedule)}</strong></p>`,
-        links.student,
-        "Check or cancel appointment",
+        `<p style="line-height:1.7">Your SWAG Peer Support meeting is confirmed.</p><p style="line-height:1.7">Supporter: <strong>${escapeHtml(mentorName)}</strong></p><p style="line-height:1.7"><strong>${escapeHtml(schedule)}</strong></p><p style="line-height:1.7">Use the private management link you saved when submitting to check or cancel this meeting.</p>`,
       ),
     };
   }
   if (job.recipient_kind === "mentor") {
-    const text = `You confirmed a SWAG appointment.\n\nStudent: ${job.student_name}\n${schedule}\n\nOpen My Case: ${links.mentor}`;
+    const text = `You have a confirmed SWAG Peer Support meeting.\n\nStudent: ${job.student_name}\n${schedule}\n\nOpen My Case: ${links.mentor}`;
     return {
       to: job.recipient_address,
       subject: CONFIRMATION_SUBJECT,
       text,
       html: page(
-        `<p style="line-height:1.7">You confirmed an appointment with <strong>${escapeHtml(job.student_name)}</strong>.</p><p style="line-height:1.7"><strong>${escapeHtml(schedule)}</strong></p>`,
+        `<p style="line-height:1.7">You have a confirmed SWAG Peer Support meeting.</p><p style="line-height:1.7">Student: <strong>${escapeHtml(job.student_name)}</strong></p><p style="line-height:1.7"><strong>${escapeHtml(schedule)}</strong></p>`,
         links.mentor,
         "Open My Case",
       ),
     };
   }
-  const text = `A SWAG appointment is confirmed.\n\nStudent: ${job.student_name}\nMentor: ${mentorName}\n${schedule}\n\nOpen Teacher Overview: ${links.teacher}`;
+  const text = `A SWAG Peer Support meeting has been confirmed under your supervision.\n\nStudent: ${job.student_name}\nSupporter: ${mentorName}\n${schedule}\n\nOpen Teacher Overview: ${links.teacher}`;
   return {
     to: job.recipient_address,
     subject: CONFIRMATION_SUBJECT,
     text,
     html: page(
-      `<p style="line-height:1.7"><strong>${escapeHtml(job.student_name)}</strong> is scheduled with <strong>${escapeHtml(mentorName)}</strong>.</p><p style="line-height:1.7"><strong>${escapeHtml(schedule)}</strong></p>`,
+      `<p style="line-height:1.7">A SWAG Peer Support meeting has been confirmed under your supervision.</p><p style="line-height:1.7">Student: <strong>${escapeHtml(job.student_name)}</strong><br>Supporter: <strong>${escapeHtml(mentorName)}</strong></p><p style="line-height:1.7"><strong>${escapeHtml(schedule)}</strong></p>`,
       links.teacher,
       "Open Teacher Overview",
     ),

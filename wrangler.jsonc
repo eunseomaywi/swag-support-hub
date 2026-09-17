@@ -19,6 +19,9 @@
     "enabled": true,
     "head_sampling_rate": 1,
   },
+  "vars": {
+    "EMAIL_EDGE_FUNCTION_ENABLED": "true",
+  },
   "triggers": {
     "crons": ["*/5 * * * *"],
   },

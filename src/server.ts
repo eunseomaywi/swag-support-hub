@@ -1,14 +1,7 @@
 import "./lib/error-capture";
 
 import { Webhook } from "svix";
-import {
-  createStudentManagementToken,
-  renderConfirmationEmail,
-  sendWithResend,
-  verifyStudentManagementToken,
-  type ConfirmationJob,
-  type ProviderResult,
-} from "./lib/confirmation-email";
+import { verifyStudentManagementToken } from "./lib/confirmation-email";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -21,9 +14,9 @@ type WorkerEnv = {
   TURNSTILE_SECRET?: string;
   TURNSTILE_HOSTNAMES?: string;
   EMAIL_MODE?: string;
+  EMAIL_EDGE_FUNCTION_ENABLED?: string;
   EMAIL_FROM?: string;
   EMAIL_REPLY_TO?: string;
-  RESEND_API_KEY?: string;
   RESEND_WEBHOOK_SECRET?: string;
   EMAIL_DISPATCH_SECRET?: string;
   STUDENT_LINK_SECRET?: string;
@@ -48,7 +41,6 @@ const PRIVATE_HEADERS = {
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
 };
-const LIVE_URL = "https://swag-support-hub.mymaywi.workers.dev";
 const PERIODS = new Set(["break", "lunch_1", "lunch_2"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -195,12 +187,11 @@ function emailReadiness(env: WorkerEnv) {
   const configured =
     mode === "live" &&
     Boolean(
-      envValue(env, "RESEND_API_KEY") &&
+      envValue(env, "EMAIL_EDGE_FUNCTION_ENABLED") === "true" &&
       from &&
       validEmail(from.replace(/^.*<([^>]+)>$/, "$1")) &&
       (!replyTo || validEmail(replyTo)) &&
-      envValue(env, "EMAIL_DISPATCH_SECRET") &&
-      envValue(env, "STUDENT_LINK_SECRET"),
+      envValue(env, "EMAIL_DISPATCH_SECRET"),
     );
   return {
     mode,
@@ -260,6 +251,7 @@ async function handlePeerIntake(request: Request, env: WorkerEnv): Promise<Respo
     !category ||
     !preferredDate ||
     privateExplanation === null ||
+    !privateExplanation.trim() ||
     !submissionKey ||
     !UUID.test(submissionKey) ||
     !validEmail(contactEmail) ||
@@ -310,59 +302,22 @@ async function handlePeerIntake(request: Request, env: WorkerEnv): Promise<Respo
     : jsonPrivate({ error: "Your request could not be submitted." }, 502);
 }
 
-async function finishJob(
-  env: WorkerEnv,
-  job: ConfirmationJob,
-  workerId: string,
-  result: ProviderResult,
-) {
-  const secret = envValue(env, "EMAIL_DISPATCH_SECRET");
-  if (!secret) return;
-  await supabaseRpc("finish_confirmation_email_job", {
-    p_dispatch_secret: secret,
-    p_job_id: job.job_id,
-    p_worker_id: workerId,
-    p_outcome: result.outcome,
-    p_provider_message_id: result.outcome === "submitted" ? result.messageId : null,
-    p_error_code: "errorCode" in result ? result.errorCode : null,
-    p_retry_after_seconds:
-      result.outcome === "temporary" ? (result.retryAfterSeconds ?? null) : null,
-  });
-}
-async function processEmailOutbox(env: WorkerEnv, siteUrl = LIVE_URL): Promise<void> {
+async function processEmailOutbox(env: WorkerEnv): Promise<void> {
   if (!emailReadiness(env).configured) return;
   const dispatchSecret = envValue(env, "EMAIL_DISPATCH_SECRET");
-  const linkSecret = envValue(env, "STUDENT_LINK_SECRET");
-  const apiKey = envValue(env, "RESEND_API_KEY");
-  const from = envValue(env, "EMAIL_FROM");
-  if (!dispatchSecret || !linkSecret || !apiKey || !from) return;
-  const workerId = crypto.randomUUID();
-  const claim = await supabaseRpc<ConfirmationJob[]>("claim_confirmation_email_jobs", {
-    p_dispatch_secret: dispatchSecret,
-    p_worker_id: workerId,
-    p_limit: 10,
-    p_lease_seconds: 120,
+  const config = supabaseConfig();
+  if (!dispatchSecret || !config) return;
+  const response = await fetch(`${config.url}/functions/v1/dispatch-confirmation-email`, {
+    method: "POST",
+    headers: {
+      apikey: config.key,
+      Authorization: `Bearer ${config.key}`,
+      "X-Swag-Dispatch-Secret": dispatchSecret,
+      "Content-Type": "application/json",
+    },
+    body: "{}",
   });
-  if (!claim.ok || !claim.data?.length) return;
-  await Promise.all(
-    claim.data.map(async (job) => {
-      const studentToken = await createStudentManagementToken(job, linkSecret);
-      const base = siteUrl.replace(/\/$/, "");
-      const message = renderConfirmationEmail(job, {
-        student: `${base}/peer-support/manage#confirmation=${studentToken}`,
-        mentor: `${base}/${job.mentor_role === "swag_member" ? "swag" : "peer-mentor"}/cases/${job.request_id}`,
-        teacher: `${base}/teacher/peer-support?request=${job.request_id}`,
-      });
-      const replyTo = envValue(env, "EMAIL_REPLY_TO");
-      const result = await sendWithResend(message, {
-        apiKey,
-        from,
-        idempotencyKey: job.idempotency_key,
-        ...(replyTo ? { replyTo } : {}),
-      });
-      await finishJob(env, job, workerId, result);
-    }),
-  );
+  if (!response.ok) throw new Error(`email_edge_dispatch_${response.status}`);
 }
 
 async function authenticatedRole(request: Request): Promise<string | null> {
@@ -390,7 +345,7 @@ async function handleDispatchKick(request: Request, env: WorkerEnv, ctx: WorkerC
   const role = await authenticatedRole(request);
   if (!role || !["peer_mentor", "swag_member", "teacher"].includes(role))
     return jsonPrivate({ error: "Authentication required." }, 401);
-  ctx.waitUntil(processEmailOutbox(env, new URL(request.url).origin));
+  ctx.waitUntil(processEmailOutbox(env));
   return jsonPrivate({ accepted: true }, 202);
 }
 async function handleSignedManagement(request: Request, env: WorkerEnv) {

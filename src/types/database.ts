@@ -494,6 +494,7 @@ export type Database = {
           scheduled_start: string;
           slot_id: string | null;
           status: Database["public"]["Enums"]["peer_session_status"];
+          student_email_snapshot: string | null;
           supervisor_teacher_id: string | null;
           time_label: string | null;
           updated_at: string;
@@ -514,6 +515,7 @@ export type Database = {
           scheduled_start: string;
           slot_id?: string | null;
           status?: Database["public"]["Enums"]["peer_session_status"];
+          student_email_snapshot?: string | null;
           supervisor_teacher_id?: string | null;
           time_label?: string | null;
           updated_at?: string;
@@ -534,6 +536,7 @@ export type Database = {
           scheduled_start?: string;
           slot_id?: string | null;
           status?: Database["public"]["Enums"]["peer_session_status"];
+          student_email_snapshot?: string | null;
           supervisor_teacher_id?: string | null;
           time_label?: string | null;
           updated_at?: string;
@@ -656,7 +659,9 @@ export type Database = {
       peer_support_requests: {
         Row: {
           assigned_at: string | null;
+          assigned_by: string | null;
           assigned_mentor_id: string | null;
+          assignment_method: string | null;
           cancelled_at: string | null;
           category: string;
           completed_at: string | null;
@@ -678,7 +683,9 @@ export type Database = {
         };
         Insert: {
           assigned_at?: string | null;
+          assigned_by?: string | null;
           assigned_mentor_id?: string | null;
+          assignment_method?: string | null;
           cancelled_at?: string | null;
           category: string;
           completed_at?: string | null;
@@ -700,7 +707,9 @@ export type Database = {
         };
         Update: {
           assigned_at?: string | null;
+          assigned_by?: string | null;
           assigned_mentor_id?: string | null;
+          assignment_method?: string | null;
           cancelled_at?: string | null;
           category?: string;
           completed_at?: string | null;
@@ -722,6 +731,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "peer_support_requests_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "peer_support_requests_assigned_mentor_id_fkey";
             columns: ["assigned_mentor_id"];
             isOneToOne: false;
@@ -740,6 +756,7 @@ export type Database = {
       peer_support_settings: {
         Row: {
           active_weekdays: number[];
+          assignment_attention_hours: number;
           display_timezone: string;
           location_guidance: string | null;
           singleton: boolean;
@@ -749,6 +766,7 @@ export type Database = {
         };
         Insert: {
           active_weekdays?: number[];
+          assignment_attention_hours?: number;
           display_timezone?: string;
           location_guidance?: string | null;
           singleton?: boolean;
@@ -758,6 +776,7 @@ export type Database = {
         };
         Update: {
           active_weekdays?: number[];
+          assignment_attention_hours?: number;
           display_timezone?: string;
           location_guidance?: string | null;
           singleton?: boolean;
@@ -921,6 +940,15 @@ export type Database = {
           success: boolean;
         }[];
       };
+      confirm_peer_meeting: {
+        Args: { p_period: string; p_request_id: string };
+        Returns: {
+          confirmation_event_id: string;
+          outcome: string;
+          session_id: string;
+          success: boolean;
+        }[];
+      };
       create_peer_availability: {
         Args: {
           p_end_at: string;
@@ -955,7 +983,9 @@ export type Database = {
         Args: { p_request_id: string };
         Returns: {
           assigned_at: string | null;
+          assigned_by: string | null;
           assigned_mentor_id: string | null;
+          assignment_method: string | null;
           cancelled_at: string | null;
           category: string;
           completed_at: string | null;
@@ -982,6 +1012,12 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      get_peer_assignment_policy: {
+        Args: never;
+        Returns: {
+          assignment_attention_hours: number;
+        }[];
+      };
       get_peer_dashboard_counts: {
         Args: never;
         Returns: {
@@ -996,7 +1032,9 @@ export type Database = {
         Args: { p_request_id: string };
         Returns: {
           assigned_at: string | null;
+          assigned_by: string | null;
           assigned_mentor_id: string | null;
+          assignment_method: string | null;
           cancelled_at: string | null;
           category: string;
           completed_at: string | null;
@@ -1098,9 +1136,12 @@ export type Database = {
           preferred_date: string;
           preferred_periods: string[];
           preferred_time: string;
+          private_explanation: string;
           request_id: string;
           stale: boolean;
+          student_name: string;
           submitted_at: string;
+          year_group: string;
         }[];
       };
       list_concern_assignees: {
@@ -1186,6 +1227,16 @@ export type Database = {
           time_label: string;
         }[];
       };
+      list_peer_supporter_candidates: {
+        Args: { p_request_id: string };
+        Returns: {
+          active_case_count: number;
+          conflicting_periods: string[];
+          full_name: string;
+          profile_id: string;
+          supporter_role: Database["public"]["Enums"]["app_role"];
+        }[];
+      };
       list_swag_escalation_assignees: {
         Args: never;
         Returns: {
@@ -1203,14 +1254,20 @@ export type Database = {
       list_teacher_peer_support_overview: {
         Args: { p_page_offset?: number; p_page_size?: number };
         Returns: {
+          assigned_at: string;
+          assignment_method: string;
           category: string;
           confirmed_period: string;
           location: string;
           mentor_email_job_id: string;
           mentor_email_status: string;
+          mentor_id: string;
           mentor_name: string;
+          near_requested_date: boolean;
+          needs_attention: boolean;
           preferred_date: string;
           preferred_periods: string[];
+          private_explanation: string;
           request_id: string;
           session_end: string;
           session_start: string;
@@ -1222,6 +1279,7 @@ export type Database = {
           submitted_at: string;
           teacher_email_job_id: string;
           teacher_email_status: string;
+          year_group: string;
         }[];
       };
       mark_peer_case_no_show: {
@@ -1289,6 +1347,10 @@ export type Database = {
         Args: { p_concern_id: string; p_status: string };
         Returns: boolean;
       };
+      set_peer_assignment_policy: {
+        Args: { p_assignment_attention_hours: number };
+        Returns: boolean;
+      };
       submit_concern: {
         Args: {
           p_category: string;
@@ -1347,6 +1409,13 @@ export type Database = {
           success: boolean;
         }[];
       };
+      teacher_assign_peer_request: {
+        Args: { p_request_id: string; p_supporter_id: string };
+        Returns: {
+          outcome: string;
+          success: boolean;
+        }[];
+      };
       teacher_correct_peer_outcome: {
         Args: {
           p_expected_status: string;
@@ -1354,6 +1423,13 @@ export type Database = {
           p_request_id: string;
         };
         Returns: boolean;
+      };
+      teacher_reassign_peer_request: {
+        Args: { p_request_id: string; p_supporter_id: string };
+        Returns: {
+          outcome: string;
+          success: boolean;
+        }[];
       };
       undo_dismiss_peer_request: {
         Args: { p_request_id: string };

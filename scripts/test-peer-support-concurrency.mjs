@@ -10,10 +10,12 @@ function localStatus() {
   try {
     raw = execFileSync(
       cli || "npx",
-      cli
-        ? ["status", "--output", "json"]
-        : ["--offline", "supabase", "status", "--output", "json"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      cli ? ["status", "--output", "json"] : ["supabase", "status", "--output", "json"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" },
+      },
     );
   } catch (error) {
     // `supabase status` can still return valid JSON with a non-zero exit when an
@@ -97,6 +99,14 @@ async function makeUser(prefix, role, account = syntheticEmail(prefix)) {
     body: { role },
   });
   assert(updated.ok, `Could not set ${prefix} role`);
+  if (role !== "student") {
+    const staff = await request("/rest/v1/staff_members", {
+      key: service,
+      token: service,
+      body: { profile_id: created.data.id, staff_type: role, booking_enabled: true },
+    });
+    assert(staff.ok, `Could not activate ${prefix}`);
+  }
   const signed = await request("/auth/v1/token?grant_type=password", {
     body: { email: account, password },
   });
@@ -216,38 +226,69 @@ assert(
         "preferred_date",
         "preferred_periods",
         "preferred_time",
+        "private_explanation",
         "request_id",
         "stale",
+        "student_name",
         "submitted_at",
+        "year_group",
       ].sort(),
     ),
-  "Pre-claim queue leaked identifying fields",
+  "Queue fields do not match the approved supporter view",
+);
+assert(
+  (await rpc("dismiss_peer_request", { p_request_id: claimTarget.request_id }, mentorA.token))
+    .data === true,
+  "Pass failed",
+);
+const otherSupporterQueue = await rpc(
+  "list_available_peer_requests",
+  { p_page_size: 30, p_page_offset: 0, p_include_dismissed: true },
+  mentorB.token,
+);
+assert(
+  otherSupporterQueue.data.find((row) => row.request_id === claimTarget.request_id)?.dismissed ===
+    false,
+  "One supporter's pass hid the request for another supporter",
+);
+assert(
+  (await rpc("undo_dismiss_peer_request", { p_request_id: claimTarget.request_id }, mentorA.token))
+    .data === true,
+  "Undo pass failed",
 );
 
 const claims = await Promise.all([
-  rpc(
-    "confirm_and_accept_peer_request",
-    { p_request_id: claimTarget.request_id, p_period: "break" },
-    mentorA.token,
-  ),
-  rpc(
-    "confirm_and_accept_peer_request",
-    { p_request_id: claimTarget.request_id, p_period: "break" },
-    mentorB.token,
-  ),
+  rpc("claim_peer_request", { p_request_id: claimTarget.request_id }, mentorA.token),
+  rpc("claim_peer_request", { p_request_id: claimTarget.request_id }, mentorB.token),
 ]);
 assert(
   claims.filter((item) => item.ok && item.data?.[0]?.success).length === 1,
-  "Concurrent confirmation did not produce exactly one winner",
+  "Concurrent self-claim did not produce exactly one winner",
 );
 const winner = claims[0].data?.[0]?.success ? mentorA : mentorB;
 const loser = winner.id === mentorA.id ? mentorB : mentorA;
-const confirmation = claims.find((item) => item.data?.[0]?.success).data[0];
+assert(
+  (await rows("peer_sessions", `select=id&request_id=eq.${claimTarget.request_id}`)).length === 0 &&
+    (
+      await rows(
+        "peer_confirmation_email_outbox",
+        `select=id&request_id=eq.${claimTarget.request_id}`,
+      )
+    ).length === 0,
+  "Assignment created a meeting or email",
+);
 assert(
   !(await rpc("get_my_peer_case", { p_request_id: claimTarget.request_id }, loser.token)).data
     ?.length,
   "Another mentor read the assigned case",
 );
+const confirmed = await rpc(
+  "confirm_peer_meeting",
+  { p_request_id: claimTarget.request_id, p_period: "break" },
+  winner.token,
+);
+assert(confirmed.ok && confirmed.data?.[0]?.success, "Assigned supporter could not confirm");
+const confirmation = confirmed.data[0];
 
 const persisted = await Promise.all([
   rows(
@@ -265,8 +306,8 @@ const persisted = await Promise.all([
   ),
 ]);
 assert(
-  persisted[0].length === 1 && persisted[0][0].status === "accepted",
-  "Request was not accepted",
+  persisted[0].length === 1 && persisted[0][0].status === "scheduled",
+  "Request was not scheduled after confirmation",
 );
 assert(
   persisted[1].length === 1 && persisted[1][0].slot_id === null,
@@ -283,7 +324,7 @@ assert(
 );
 
 const repeat = await rpc(
-  "confirm_and_accept_peer_request",
+  "confirm_peer_meeting",
   { p_request_id: claimTarget.request_id, p_period: "break" },
   winner.token,
 );
@@ -298,13 +339,18 @@ const conflictTarget = await submit("conflict", {
   day: claimTarget.payload.p_preferred_date,
   periods: ["break"],
 });
+assert(
+  (await rpc("claim_peer_request", { p_request_id: conflictTarget.request_id }, winner.token))
+    .data?.[0]?.success,
+  "Conflict fixture was not assigned",
+);
 const conflict = await rpc(
-  "confirm_and_accept_peer_request",
+  "confirm_peer_meeting",
   { p_request_id: conflictTarget.request_id, p_period: "break" },
   winner.token,
 );
 assert(
-  conflict.ok && conflict.data?.[0]?.outcome === "mentor_conflict",
+  conflict.ok && conflict.data?.[0]?.outcome === "supporter_conflict",
   "Overlapping mentor appointment succeeded",
 );
 assert(
@@ -319,25 +365,60 @@ assert(
 
 const swagTarget = await submit("swag", { day: futureDate(8), periods: ["lunch_1"] });
 assert(
+  (await rpc("claim_peer_request", { p_request_id: swagTarget.request_id }, swag.token)).data?.[0]
+    ?.success,
+  "SWAG Member could not accept a case",
+);
+assert(
   (
     await rpc(
-      "confirm_and_accept_peer_request",
+      "confirm_peer_meeting",
       { p_request_id: swagTarget.request_id, p_period: "lunch_1" },
       swag.token,
     )
   ).data?.[0]?.success,
-  "SWAG Member could not accept a case",
+  "SWAG Member could not confirm an assigned case",
 );
 const teacherTarget = await submit("teacher", { day: futureDate(9), periods: ["lunch_2"] });
 assert(
-  !(
+  !(await rpc("claim_peer_request", { p_request_id: teacherTarget.request_id }, teacher.token)).ok,
+  "Teacher joined the claim pool",
+);
+assert(
+  (
     await rpc(
-      "confirm_and_accept_peer_request",
-      { p_request_id: teacherTarget.request_id, p_period: "lunch_2" },
+      "teacher_assign_peer_request",
+      { p_request_id: teacherTarget.request_id, p_supporter_id: mentorB.id },
       teacher.token,
     )
-  ).ok,
-  "Teacher joined the claim pool",
+  ).data?.[0]?.success,
+  "Teacher could not assign an open request",
+);
+assert(
+  (
+    await rows(
+      "peer_confirmation_email_outbox",
+      `select=id&request_id=eq.${teacherTarget.request_id}`,
+    )
+  ).length === 0,
+  "Teacher assignment created email",
+);
+
+const mixedRaceTarget = await submit("mixed-race", {
+  day: futureDate(9),
+  periods: ["break"],
+});
+const mixedRace = await Promise.all([
+  rpc("claim_peer_request", { p_request_id: mixedRaceTarget.request_id }, mentorA.token),
+  rpc(
+    "teacher_assign_peer_request",
+    { p_request_id: mixedRaceTarget.request_id, p_supporter_id: mentorB.id },
+    teacher.token,
+  ),
+]);
+assert(
+  mixedRace.filter((item) => item.ok && item.data?.[0]?.success).length === 1,
+  "Teacher assignment and self-claim race did not produce exactly one winner",
 );
 
 const duplicate = await submit("duplicate", { day: futureDate(10), periods: ["break", "lunch_2"] });
@@ -349,13 +430,19 @@ assert(
 
 const badPeriodTarget = await submit("bad-period", { day: futureDate(11), periods: ["break"] });
 assert(
-  !(
-    await rpc(
-      "confirm_and_accept_peer_request",
-      { p_request_id: badPeriodTarget.request_id, p_period: "lunch_2" },
-      mentorB.token,
-    )
-  ).ok,
+  (await rpc("claim_peer_request", { p_request_id: badPeriodTarget.request_id }, mentorB.token))
+    .data?.[0]?.success,
+  "Bad-period fixture could not be assigned",
+);
+const badPeriod = await rpc(
+  "confirm_peer_meeting",
+  { p_request_id: badPeriodTarget.request_id, p_period: "lunch_2" },
+  mentorB.token,
+);
+assert(
+  badPeriod.ok &&
+    badPeriod.data?.[0]?.success === false &&
+    badPeriod.data?.[0]?.outcome === "period_not_requested",
   "Unselected period was accepted",
 );
 assert(
@@ -523,9 +610,14 @@ assert(
 
 const cancelTarget = await submit("cancel", { day: futureDate(12), periods: ["lunch_2"] });
 assert(
+  (await rpc("claim_peer_request", { p_request_id: cancelTarget.request_id }, mentorB.token))
+    .data?.[0]?.success,
+  "Cancellation fixture could not be assigned",
+);
+assert(
   (
     await rpc(
-      "confirm_and_accept_peer_request",
+      "confirm_peer_meeting",
       { p_request_id: cancelTarget.request_id, p_period: "lunch_2" },
       mentorB.token,
     )

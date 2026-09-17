@@ -13,7 +13,7 @@ export const Route = createFileRoute("/form/booking")({
       { title: "Booking Form — Book a Peer Mentor Session" },
       {
         name: "description",
-        content: "Request confidential support from a SWAG Peer Mentor in four short steps.",
+        content: "Request a private peer-support conversation from SWAG in four short steps.",
       },
       { property: "og:title", content: "Book a Peer Mentor Session — SWAG" },
       { property: "og:description", content: "Book a session with a SWAG peer mentor." },
@@ -52,6 +52,7 @@ function BookingForm() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [consented, setConsented] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -93,6 +94,12 @@ function BookingForm() {
       if (data.preferredPeriods.length === 0)
         e["preferredPeriods"] = "Please choose at least one time.";
       if (!data.topic) e["topic"] = "Please choose a topic.";
+    }
+    if (current === 3 && !data.additionalInfo.trim()) {
+      e["additionalInfo"] = "Please tell us briefly what you would like to talk about.";
+    }
+    if (current === 4 && !consented) {
+      e["consent"] = "Please confirm that you understand who can review this request.";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -342,10 +349,11 @@ function BookingForm() {
           {step === 3 && (
             <FormStep step={3} total={TOTAL} title="Additional Info" onBack={back} onNext={next}>
               <TextAreaField
-                label="Anything you'd like your mentor to know?"
+                label="What would you like to talk about?"
                 value={data.additionalInfo}
                 onChange={(e) => set("additionalInfo")(e.target.value)}
-                hint="Optional — share as much or as little as you like."
+                hint="Required. Keep it brief; do not use this form for emergencies."
+                error={errors["additionalInfo"]}
               />
             </FormStep>
           )}
@@ -389,6 +397,29 @@ function BookingForm() {
                 onToken={handleToken}
                 onError={handleTurnstileError}
               />
+              <label className="flex items-start gap-3 rounded-xl border border-swag-blue/30 bg-swag-blue/5 p-4 text-sm leading-relaxed text-swag-navy">
+                <input
+                  type="checkbox"
+                  checked={consented}
+                  onChange={(event) => setConsented(event.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0"
+                />
+                <span>
+                  I understand that this request can be reviewed by approved Peer Mentors, approved
+                  SWAG Members, and the responsible Teacher so that support can be arranged. It is
+                  not visible to public website visitors, but SWAG cannot promise absolute
+                  confidentiality. Peer Support is not therapy or professional counselling.
+                </span>
+              </label>
+              {errors["consent"] && (
+                <p role="alert" className="text-sm text-destructive">
+                  {errors["consent"]}
+                </p>
+              )}
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Entering an email in the expected school format does not by itself verify your
+                identity.
+              </p>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 This online form is not an emergency channel. If someone is in immediate danger,
                 contact emergency services or a trusted adult now.

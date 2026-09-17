@@ -31,13 +31,23 @@ The existing Worker also requires these encrypted runtime secrets:
 - `EMAIL_DISPATCH_SECRET`
 - `STUDENT_LINK_SECRET`
 
-Confirmation delivery additionally requires these server-only values before `EMAIL_MODE=live` is
+The Worker scheduler additionally requires these server-only values before `EMAIL_MODE=live` is
 safe:
 
-- `EMAIL_FROM` — a sender already verified for SWAG use
+- `EMAIL_FROM` — mirrors a sender already verified for SWAG use
 - `EMAIL_REPLY_TO` — optional approved reply address
-- `RESEND_API_KEY`
 - `RESEND_WEBHOOK_SECRET` — required to advance beyond `submitted` using verified delivery events
+- `EMAIL_EDGE_FUNCTION_ENABLED=true`
+
+The Supabase Edge Function `dispatch-confirmation-email` requires:
+
+- `RESEND_API_KEY`
+- `EMAIL_DISPATCH_SECRET` — must match the encrypted Worker secret
+- `SWAG_EMAIL_FROM`
+- `SWAG_PUBLIC_BASE_URL`
+- optional `SWAG_EMAIL_REPLY_TO`
+
+Keep the Resend key in Supabase. Do not duplicate it in Cloudflare.
 
 `EMAIL_MODE` is `disabled`, `test`, or `live` and defaults to `disabled`. Missing provider values
 must never be treated as a successful delivery. Configure school period times, location guidance,
@@ -50,11 +60,14 @@ process are ready. Local development sets this value in `scripts/dev-local.mjs`.
 
 Never log their values. The gateway secret must match the SHA-256 verifier in the peer-support migration. Rotate it through a follow-up migration and Worker secret update together.
 
-The five-minute Worker cron only retries pending or temporary-failure
-`PEER_SESSION_CONFIRMED` outbox rows. It does not calculate appointment lead time and creates no
-reminders. Automatic delivery retry is recipient-scoped and capped at five attempts. Resend's
-documented idempotency-key retention is 24 hours; this implementation stops an expired processing
-lease at 23 hours as `uncertain` instead of assuming indefinite provider deduplication.
+The five-minute Worker cron invokes the JWT-protected Supabase dispatcher, which only retries
+pending or temporary-failure `PEER_SESSION_CONFIRMED` outbox rows. It does not calculate appointment
+lead time and creates no reminders. Automatic delivery retry is recipient-scoped and capped at five
+attempts. An expired processing lease past the provider idempotency window becomes `uncertain`
+instead of being blindly resent.
+
+See `docs/booking-operations.md` for the assignment/confirmation state machine, webhook registration,
+safe retry rules, operational settings and recovery procedure.
 
 ## Local verification
 

@@ -18,7 +18,10 @@ import type { Database } from "@/types/database";
 type PeerRole = "peer_mentor" | "swag_member";
 type QueueRow = {
   request_id: string;
+  student_name: string;
+  year_group: string;
   category: string;
+  private_explanation: string | null;
   preferred_date: string;
   preferred_time: string;
   preferred_periods: string[];
@@ -193,8 +196,6 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
   const [error, setError] = useState<string | null>(null);
   const [includePassed, setIncludePassed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewRow[] | null>(null);
-  const [previewRequest, setPreviewRequest] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -205,57 +206,23 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
     if (rpcError) {
       setRows([]);
       setError("Requests could not be loaded. Please try again.");
-    } else setRows(data ?? []);
+    } else setRows((data ?? []) as QueueRow[]);
     setLoading(false);
   }, [includePassed]);
   useFocusRefresh(load);
-  async function openConfirmation(id: string) {
+  async function accept(id: string) {
     setBusy(id);
     setError(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc(
-      "preview_peer_request_confirmation",
-      {
-        p_request_id: id,
-      },
-    );
-    if (rpcError || !data?.length) setError("Confirmation options could not be loaded.");
-    else {
-      setPreview(data as PreviewRow[]);
-      setPreviewRequest(id);
-    }
-    setBusy(null);
-  }
-  async function confirm(period: string) {
-    if (!previewRequest) return;
-    setBusy(previewRequest);
-    setError(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc(
-      "confirm_and_accept_peer_request",
-      {
-        p_request_id: previewRequest,
-        p_period: period,
-      },
-    );
+    const { data, error: rpcError } = await getSupabaseClient().rpc("claim_peer_request", {
+      p_request_id: id,
+    });
     const result = data?.[0];
     if (rpcError || !result?.success) {
-      const outcome = result?.outcome;
       setError(
-        outcome === "mentor_conflict"
-          ? "You already have another appointment at that time."
-          : outcome === "configuration_not_ready"
-            ? "The school schedule, location, or supervisor Teacher is not ready."
-            : "Another mentor may have confirmed this request. The list has been refreshed.",
+        result?.outcome === "self_assignment_blocked"
+          ? "You cannot accept your own support request."
+          : "Another supporter or a Teacher may already have assigned this request. The list has been refreshed.",
       );
-    } else {
-      const { data: session } = await getSupabaseClient().auth.getSession();
-      if (session.session?.access_token) {
-        void fetch("/api/peer-support/email/kick", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.session.access_token}` },
-        });
-      }
-      setPreview(null);
-      setPreviewRequest(null);
     }
     await load();
     setBusy(null);
@@ -275,7 +242,7 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
       <DashboardPageHeading
         eyebrow={role === "swag_member" ? "Shared peer capability" : "Peer Support"}
         title="Available Requests"
-        description="Open requests show timing and category only. Student identity and private explanations stay hidden until you accept."
+        description="Approved Peer Mentors and SWAG Members can review the student's request and accept one they can support. Email addresses are not shown here."
       />
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-swag-navy">
@@ -317,8 +284,7 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
                     {row.category}
                   </p>
                   <h2 className="mt-1 text-lg font-bold text-swag-navy">
-                    {seoulDate.format(new Date(`${row.preferred_date}T00:00:00+09:00`))} ·{" "}
-                    {row.preferred_time}
+                    {row.student_name} · {row.year_group}
                   </h2>
                 </div>
                 {row.dismissed && (
@@ -327,16 +293,23 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
                   </span>
                 )}
               </div>
+              <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-swag-navy">
+                {row.private_explanation || "No additional details were provided."}
+              </p>
+              <p className="mt-3 text-sm font-semibold text-swag-navy">
+                {seoulDate.format(new Date(`${row.preferred_date}T00:00:00+09:00`))} ·{" "}
+                {row.preferred_time}
+              </p>
               <p className="mt-3 text-xs text-muted-foreground">
                 Submitted {format(row.submitted_at)}
               </p>
               <div className="mt-5 flex gap-2">
                 <button
                   disabled={busy === row.request_id}
-                  onClick={() => void openConfirmation(row.request_id)}
+                  onClick={() => void accept(row.request_id)}
                   className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
-                  I'll take this
+                  Accept
                 </button>
                 <button
                   disabled={busy === row.request_id}
@@ -354,60 +327,6 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
             </article>
           ))}
         </div>
-      )}
-      {previewRequest && preview && (
-        <section className="paper-card mt-6 border-swag-green/40 p-5 sm:p-7" aria-live="polite">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-swag-navy">Confirm &amp; Accept</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose only one of the student's available periods. The school time and location
-                below will be saved as a snapshot.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="min-h-11 rounded-lg border border-border px-3 text-sm font-semibold"
-              onClick={() => {
-                setPreview(null);
-                setPreviewRequest(null);
-              }}
-            >
-              Close
-            </button>
-          </div>
-          <div className="mt-5 grid gap-3">
-            {preview.map((option) => (
-              <article key={option.period} className="rounded-xl border border-border p-4">
-                <p className="font-bold text-swag-navy">
-                  {option.preferred_date} · {option.period_label}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {option.scheduled_start && option.scheduled_end
-                    ? `${format(option.scheduled_start)}–${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", timeStyle: "short" }).format(new Date(option.scheduled_end))} · ${option.location_guidance}`
-                    : "School schedule or location is not configured."}
-                </p>
-                {!option.ready && (
-                  <p className="mt-2 text-xs font-semibold text-swag-orange">
-                    Not ready: {option.readiness_issue?.replaceAll("_", " ")}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  disabled={!option.ready || busy === previewRequest}
-                  onClick={() => void confirm(option.period)}
-                  className="mt-3 min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                >
-                  Confirm &amp; Accept
-                </button>
-              </article>
-            ))}
-          </div>
-          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Only the student, the mentor who confirms this request, and the designated supervisor
-            Teacher receive separate confirmation emails when email delivery is configured.
-          </p>
-        </section>
       )}
     </>
   );
@@ -483,6 +402,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmationOptions, setConfirmationOptions] = useState<PreviewRow[] | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error: rpcError } = await getSupabaseClient().rpc("list_my_peer_cases", {
@@ -501,6 +421,53 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
     setLoading(false);
   }, [requestId]);
   useFocusRefresh(load);
+  async function loadConfirmationOptions() {
+    setBusy(true);
+    setError(null);
+    const { data, error: rpcError } = await getSupabaseClient().rpc(
+      "preview_peer_request_confirmation",
+      { p_request_id: requestId },
+    );
+    if (rpcError || !data?.length) {
+      setConfirmationOptions(null);
+      setError("Meeting options could not be loaded.");
+    } else setConfirmationOptions(data as PreviewRow[]);
+    setBusy(false);
+  }
+  async function confirmMeeting(period: string) {
+    setBusy(true);
+    setError(null);
+    const { data, error: rpcError } = await getSupabaseClient().rpc(
+      "confirm_peer_meeting" as never,
+      { p_request_id: requestId, p_period: period } as never,
+    );
+    const result = (
+      data as Array<{ success: boolean; outcome: string; session_id: string | null }> | null
+    )?.[0];
+    if (rpcError || !result?.success) {
+      const outcome = result?.outcome;
+      setError(
+        outcome === "supporter_conflict"
+          ? "You already have another meeting at that time."
+          : outcome === "student_conflict"
+            ? "The student already has another meeting at that time."
+            : outcome === "configuration_not_ready"
+              ? "The school schedule, location, or supervising Teacher is not ready."
+              : "The meeting could not be confirmed. Refresh and check the latest case status.",
+      );
+    } else {
+      const { data: auth } = await getSupabaseClient().auth.getSession();
+      if (auth.session?.access_token) {
+        void fetch("/api/peer-support/email/kick", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${auth.session.access_token}` },
+        });
+      }
+      setConfirmationOptions(null);
+      await load();
+    }
+    setBusy(false);
+  }
   async function action(kind: "complete" | "cancel" | "no_show") {
     setBusy(true);
     const result =
@@ -649,6 +616,56 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
           <aside className="paper-card border-swag-green/35 p-5">
             <h2 className="text-lg font-bold text-swag-navy">Next actions</h2>
             <div className="mt-4 grid gap-3">
+              {row.status === "accepted" && !row.session_id && (
+                <>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    This case is assigned to you, but no meeting is confirmed yet. Choose one of the
+                    student's available periods.
+                  </p>
+                  {!confirmationOptions ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void loadConfirmationOptions()}
+                      className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      Choose meeting time
+                    </button>
+                  ) : (
+                    <div className="grid gap-2">
+                      {confirmationOptions.map((option) => (
+                        <div key={option.period} className="rounded-xl border border-border p-3">
+                          <p className="text-sm font-bold text-swag-navy">
+                            {option.preferred_date} · {option.period_label}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {option.scheduled_start && option.scheduled_end
+                              ? `${format(option.scheduled_start)}–${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", timeStyle: "short" }).format(new Date(option.scheduled_end))} · ${option.location_guidance}`
+                              : "School schedule or location is not configured."}
+                          </p>
+                          {!option.ready && (
+                            <p className="mt-1 text-xs font-semibold text-swag-orange">
+                              Not ready: {option.readiness_issue?.replaceAll("_", " ")}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            disabled={busy || !option.ready}
+                            onClick={() => void confirmMeeting(option.period)}
+                            className="mt-2 min-h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                          >
+                            Confirm Meeting
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Confirmation creates three separate email jobs: student, assigned supporter, and
+                    supervising Teacher. Accepting the case did not send email.
+                  </p>
+                </>
+              )}
               {["accepted", "scheduled"].includes(row.status) && row.session_id && (
                 <>
                   <button

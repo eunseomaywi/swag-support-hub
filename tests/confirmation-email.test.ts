@@ -27,7 +27,6 @@ const base: ConfirmationJob = {
   display_timezone: "Asia/Seoul",
 };
 const links = {
-  student: "https://example.test/manage#student-secret",
   mentor: "https://example.test/mentor",
   teacher: "https://example.test/teacher",
 };
@@ -46,16 +45,12 @@ test("renders three separate confirmation-only templates with no CC/BCC", () => 
   }
 });
 
-test("student bearer link appears only in the student template", () => {
-  assert.match(renderConfirmationEmail(base, links).text, /student-secret/);
-  assert.doesNotMatch(
-    renderConfirmationEmail({ ...base, recipient_kind: "mentor" }, links).text,
-    /student-secret/,
-  );
-  assert.doesNotMatch(
-    renderConfirmationEmail({ ...base, recipient_kind: "teacher" }, links).text,
-    /student-secret/,
-  );
+test("confirmation templates never create or expose a replacement student management token", () => {
+  for (const recipient_kind of ["student", "mentor", "teacher"] as const) {
+    const rendered = renderConfirmationEmail({ ...base, recipient_kind }, links);
+    assert.doesNotMatch(rendered.text, /#token=|#confirmation=|student-secret/);
+    assert.doesNotMatch(rendered.html, /#token=|#confirmation=|student-secret/);
+  }
 });
 
 test("signed management credential is scoped, tamper-resistant and expiring", async () => {

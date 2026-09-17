@@ -7,6 +7,9 @@ import { getSupabaseClient } from "@/lib/supabase";
 type OverviewRow = {
   request_id: string;
   student_name: string;
+  year_group: string;
+  private_explanation: string | null;
+  mentor_id: string | null;
   mentor_name: string | null;
   category: string;
   preferred_date: string;
@@ -16,6 +19,8 @@ type OverviewRow = {
   session_end: string | null;
   location: string | null;
   status: string;
+  assignment_method: string | null;
+  assigned_at: string | null;
   submitted_at: string;
   student_email_job_id: string | null;
   mentor_email_job_id: string | null;
@@ -24,6 +29,8 @@ type OverviewRow = {
   mentor_email_status: string | null;
   teacher_email_status: string | null;
   stale: boolean;
+  needs_attention: boolean;
+  near_requested_date: boolean;
 };
 type Counts = {
   open_count: number;
@@ -50,10 +57,17 @@ type SettingsRow = {
   schedule_ready: boolean;
 };
 type Candidate = { profile_id: string; full_name: string | null };
+type SupporterCandidate = Candidate & {
+  supporter_role: "peer_mentor" | "swag_member";
+  active_case_count: number;
+  conflicting_periods: string[];
+};
 type Filter =
   | "all"
   | "open"
-  | "confirmed"
+  | "needs_attention"
+  | "assigned"
+  | "scheduled"
   | "today"
   | "completed"
   | "cancelled"
@@ -119,6 +133,9 @@ export function TeacherPeerSupport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [supporters, setSupporters] = useState<SupporterCandidate[]>([]);
+  const [selectedSupporter, setSelectedSupporter] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -145,7 +162,10 @@ export function TeacherPeerSupport() {
     () =>
       rows.filter((row) => {
         if (filter === "all") return true;
-        if (filter === "confirmed") return row.status === "accepted" || row.status === "scheduled";
+        if (filter === "needs_attention")
+          return row.needs_attention || row.near_requested_date || row.stale;
+        if (filter === "assigned") return row.status === "accepted";
+        if (filter === "scheduled") return row.status === "scheduled";
         if (filter === "today")
           return Boolean(row.session_start && dateInSeoul(row.session_start) === today());
         if (filter === "email")
@@ -201,6 +221,53 @@ export function TeacherPeerSupport() {
     await load();
     setBusy(null);
   }
+  async function openAssignment(row: OverviewRow) {
+    setBusy(row.request_id);
+    setError(null);
+    const { data, error: rpcError } = await getSupabaseClient().rpc(
+      "list_peer_supporter_candidates" as never,
+      { p_request_id: row.request_id } as never,
+    );
+    if (rpcError) {
+      setError("Active supporters could not be loaded.");
+      setSupporters([]);
+    } else {
+      setSupporters((data ?? []) as SupporterCandidate[]);
+      setSelectedSupporter(row.mentor_id || "");
+      setAssigning(row.request_id);
+    }
+    setBusy(null);
+  }
+  async function saveAssignment(row: OverviewRow) {
+    if (!selectedSupporter) return;
+    setBusy(row.request_id);
+    setError(null);
+    const rpc =
+      row.status === "open" ? "teacher_assign_peer_request" : "teacher_reassign_peer_request";
+    const { data, error: rpcError } = await getSupabaseClient().rpc(
+      rpc as never,
+      {
+        p_request_id: row.request_id,
+        p_supporter_id: selectedSupporter,
+      } as never,
+    );
+    const result = (data as Array<{ success: boolean; outcome: string }> | null)?.[0];
+    if (rpcError || !result?.success) {
+      setError(
+        result?.outcome === "supporter_not_active"
+          ? "That supporter is no longer active."
+          : result?.outcome === "not_reassignable"
+            ? "A confirmed or closed case cannot be silently reassigned."
+            : "The request changed before assignment. The overview has been refreshed.",
+      );
+    } else {
+      setAssigning(null);
+      setSupporters([]);
+      setSelectedSupporter("");
+    }
+    await load();
+    setBusy(null);
+  }
 
   return (
     <>
@@ -253,7 +320,9 @@ export function TeacherPeerSupport() {
             [
               "all",
               "open",
-              "confirmed",
+              "needs_attention",
+              "assigned",
+              "scheduled",
               "today",
               "completed",
               "cancelled",
@@ -304,8 +373,28 @@ export function TeacherPeerSupport() {
                   >
                     <td className="max-w-44 break-words p-3 font-semibold text-swag-navy">
                       {row.student_name}
+                      <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                        {row.year_group} · {row.category}
+                      </span>
+                      {row.status === "open" && (
+                        <details className="mt-2 text-xs font-normal">
+                          <summary className="cursor-pointer font-semibold text-swag-blue">
+                            Operational detail
+                          </summary>
+                          <p className="mt-2 max-w-64 whitespace-pre-wrap break-words leading-relaxed text-muted-foreground">
+                            {row.private_explanation || "No additional details were provided."}
+                          </p>
+                        </details>
+                      )}
                     </td>
-                    <td className="max-w-44 break-words p-3">{row.mentor_name || "Unassigned"}</td>
+                    <td className="max-w-44 break-words p-3">
+                      {row.mentor_name || "Unassigned"}
+                      {row.assignment_method && (
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {row.assignment_method.replace("_", " ")}
+                        </span>
+                      )}
+                    </td>
                     <td className="p-3">
                       <span className="block">{row.preferred_date}</span>
                       <span className="text-xs text-muted-foreground">
@@ -315,7 +404,17 @@ export function TeacherPeerSupport() {
                       </span>
                       {row.stale && (
                         <span className="mt-1 block text-xs font-semibold text-swag-orange">
-                          Overdue request
+                          Requested date has passed
+                        </span>
+                      )}
+                      {row.needs_attention && (
+                        <span className="mt-1 block text-xs font-semibold text-swag-orange">
+                          Waiting beyond attention threshold
+                        </span>
+                      )}
+                      {row.near_requested_date && !row.stale && (
+                        <span className="mt-1 block text-xs font-semibold text-swag-pink">
+                          Requested date is near
                         </span>
                       )}
                     </td>
@@ -334,8 +433,8 @@ export function TeacherPeerSupport() {
                       )}
                     </td>
                     <td className="p-3 font-semibold capitalize">
-                      {row.status === "accepted" && row.session_start
-                        ? "confirmed"
+                      {row.status === "accepted"
+                        ? "assigned — awaiting confirmation"
                         : row.status.replace("_", " ")}
                     </td>
                     <td className="p-3">
@@ -362,6 +461,56 @@ export function TeacherPeerSupport() {
                     </td>
                     <td className="p-3">
                       <div className="flex flex-col gap-1">
+                        {(row.status === "open" || row.status === "accepted") && (
+                          <button
+                            disabled={busy === row.request_id}
+                            onClick={() => void openAssignment(row)}
+                            className="text-left text-xs font-semibold text-swag-blue underline"
+                          >
+                            {row.status === "open" ? "Assign supporter" : "Reassign supporter"}
+                          </button>
+                        )}
+                        {assigning === row.request_id && (
+                          <div className="mt-2 min-w-64 rounded-lg border border-border bg-background p-2">
+                            <label className="text-xs font-semibold text-swag-navy">
+                              Active Peer Mentor or SWAG Member
+                              <select
+                                value={selectedSupporter}
+                                onChange={(event) => setSelectedSupporter(event.target.value)}
+                                className="mt-1 min-h-10 w-full rounded-md border border-border bg-background px-2 font-normal"
+                              >
+                                <option value="">Select supporter</option>
+                                {supporters.map((candidate) => (
+                                  <option key={candidate.profile_id} value={candidate.profile_id}>
+                                    {candidate.full_name || "Supporter"} ·{" "}
+                                    {candidate.supporter_role.replace("_", " ")} ·{" "}
+                                    {candidate.active_case_count} active
+                                    {candidate.conflicting_periods.length
+                                      ? ` · conflicts: ${candidate.conflicting_periods.map((period) => labels[period] || period).join(", ")}`
+                                      : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <div className="mt-2 flex gap-2">
+                              <button
+                                type="button"
+                                disabled={!selectedSupporter || busy === row.request_id}
+                                onClick={() => void saveAssignment(row)}
+                                className="min-h-9 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                              >
+                                {row.status === "open" ? "Assign" : "Reassign"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAssigning(null)}
+                                className="min-h-9 rounded-md border border-border px-3 text-xs font-semibold"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {["accepted", "scheduled"].includes(row.status) && row.session_start && (
                           <>
                             <button
@@ -429,11 +578,13 @@ function SchoolSettings() {
     lunch2End: "",
   });
   const [message, setMessage] = useState<string | null>(null);
+  const [attentionHours, setAttentionHours] = useState(24);
   const load = useCallback(async () => {
     const client = getSupabaseClient();
-    const [settingResult, candidateResult, emailResult] = await Promise.all([
+    const [settingResult, candidateResult, policyResult, emailResult] = await Promise.all([
       client.rpc("get_peer_support_settings"),
       client.rpc("list_teacher_candidates"),
+      client.rpc("get_peer_assignment_policy" as never),
       fetch("/api/peer-support/status", { cache: "no-store" })
         .then((response) => response.json())
         .catch(() => null),
@@ -442,6 +593,10 @@ function SchoolSettings() {
     if (row) {
       setSettings(row);
       setCandidates((candidateResult.data ?? []) as Candidate[]);
+      const policy = (
+        policyResult.data as Array<{ assignment_attention_hours: number }> | null
+      )?.[0];
+      if (policy) setAttentionHours(policy.assignment_attention_hours);
       setEmail(emailResult?.email ?? null);
       const byPeriod = Object.fromEntries(
         (row.periods ?? []).map((period) => [period.period, period]),
@@ -480,6 +635,19 @@ function SchoolSettings() {
       error || !data
         ? "Enter a valid location, Teacher, active days, and start/end time for all three periods."
         : "School appointment settings saved.",
+    );
+    await load();
+  }
+  async function saveAttentionPolicy() {
+    setMessage(null);
+    const { data, error } = await getSupabaseClient().rpc(
+      "set_peer_assignment_policy" as never,
+      { p_assignment_attention_hours: attentionHours } as never,
+    );
+    setMessage(
+      error || !data
+        ? "Use an attention threshold from 1 to 168 hours."
+        : "Assignment attention threshold saved.",
     );
     await load();
   }
@@ -530,6 +698,30 @@ function SchoolSettings() {
             ))}
           </select>
         </label>
+      </div>
+      <div className="mt-4 max-w-sm rounded-xl border border-border p-3">
+        <label className="text-sm font-semibold text-swag-navy">
+          Assignment attention threshold (hours)
+          <input
+            type="number"
+            min={1}
+            max={168}
+            value={attentionHours}
+            onChange={(event) => setAttentionHours(Number(event.target.value))}
+            className="mt-2 min-h-10 w-full rounded-lg border border-border bg-background px-3 font-normal"
+          />
+        </label>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          This only highlights waiting requests. It does not block self-claiming or assign anyone
+          automatically.
+        </p>
+        <button
+          type="button"
+          onClick={() => void saveAttentionPolicy()}
+          className="mt-3 min-h-10 rounded-lg border border-border px-4 text-xs font-semibold text-swag-navy"
+        >
+          Save attention threshold
+        </button>
       </div>
       <fieldset className="mt-4">
         <legend className="text-sm font-semibold text-swag-navy">Active school days</legend>
