@@ -1,3 +1,5 @@
+import { sendWithGmail, smtpFailure } from "../_shared/gmail-smtp.ts";
+
 type Job = {
   job_id: string;
   recipient_kind: "student" | "mentor" | "teacher";
@@ -120,16 +122,6 @@ function render(job: Job, baseUrl: string) {
   };
 }
 
-function retryAfter(value: string | null) {
-  if (!value) return null;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(Math.ceil(seconds), 3600);
-  const instant = Date.parse(value);
-  return Number.isFinite(instant)
-    ? Math.min(Math.max(Math.ceil((instant - Date.now()) / 1000), 0), 3600)
-    : null;
-}
-
 Deno.serve(async (request) => {
   if (request.method !== "POST")
     return new Response(null, { status: 405, headers: { ...jsonHeaders, allow: "POST" } });
@@ -143,15 +135,16 @@ Deno.serve(async (request) => {
       headers: jsonHeaders,
     });
   }
-  const apiKey = env("RESEND_API_KEY");
-  const from = env("SWAG_EMAIL_FROM") || env("EMAIL_FROM");
+  const provider = env("EMAIL_PROVIDER");
+  const smtpUser = env("GMAIL_SMTP_USER");
+  const smtpPassword = env("GMAIL_SMTP_APP_PASSWORD").replace(/\s+/g, "");
   const replyTo = env("SWAG_EMAIL_REPLY_TO") || env("EMAIL_REPLY_TO");
   const baseUrl = (env("SWAG_PUBLIC_BASE_URL") || "").replace(/\/$/, "");
-  const senderAddress = from.replace(/^.*<([^>]+)>$/, "$1");
   if (
-    !apiKey ||
-    !from ||
-    !validEmail(senderAddress) ||
+    provider !== "gmail" ||
+    !smtpUser ||
+    !validEmail(smtpUser) ||
+    !smtpPassword ||
     (replyTo && !validEmail(replyTo)) ||
     !baseUrl
   ) {
@@ -173,47 +166,29 @@ Deno.serve(async (request) => {
     let providerMessageId: string | null = null;
     let errorCode: string | null = "provider_network_error";
     let retryAfterSeconds: number | null = null;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
     try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          "content-type": "application/json",
-          "idempotency-key": job.idempotency_key,
+      const message = render(job, baseUrl);
+      const result = await sendWithGmail(
+        { user: smtpUser, password: smtpPassword, ...(replyTo ? { replyTo } : {}) },
+        {
+          to: job.recipient_address,
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
         },
-        body: JSON.stringify({
-          from,
-          ...render(job, baseUrl),
-          ...(replyTo ? { reply_to: replyTo } : {}),
-        }),
-      });
-      if (response.ok) {
-        const body = (await response.json()) as { id?: unknown };
-        if (typeof body.id === "string" && body.id.length <= 200) {
-          outcome = "submitted";
-          providerMessageId = body.id;
-          errorCode = null;
-        } else {
-          outcome = "uncertain";
-          errorCode = "provider_response_missing_id";
-        }
-      } else if (response.status === 408 || response.status === 429 || response.status >= 500) {
-        outcome = "temporary";
-        errorCode = `provider_http_${response.status}`;
-        retryAfterSeconds = retryAfter(response.headers.get("retry-after"));
+      );
+      if (result.accepted && result.messageId.length <= 200) {
+        outcome = "submitted";
+        providerMessageId = result.messageId;
+        errorCode = null;
       } else {
         outcome = "permanent";
-        errorCode = `provider_http_${response.status}`;
+        errorCode = "gmail_smtp_recipient_rejected";
       }
     } catch (error) {
-      outcome =
-        error instanceof DOMException && error.name === "AbortError" ? "uncertain" : "temporary";
-      errorCode = outcome === "uncertain" ? "provider_timeout_uncertain" : "provider_network_error";
-    } finally {
-      clearTimeout(timeout);
+      const failure = smtpFailure(error);
+      outcome = failure.outcome;
+      errorCode = failure.errorCode;
     }
     await rpc("finish_confirmation_email_job", {
       p_dispatch_secret: dispatchSecret,

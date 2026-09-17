@@ -21,6 +21,8 @@
   },
   "vars": {
     "EMAIL_EDGE_FUNCTION_ENABLED": "true",
+    "EMAIL_MODE": "live",
+    "PEER_INTAKE_ENABLED": "true",
   },
   "triggers": {
     "crons": ["*/5 * * * *"],

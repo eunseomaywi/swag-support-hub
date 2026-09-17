@@ -182,21 +182,16 @@ async function supabaseRpc<T>(
 function emailReadiness(env: WorkerEnv) {
   const rawMode = envValue(env, "EMAIL_MODE") || "disabled";
   const mode = rawMode === "live" || rawMode === "test" ? rawMode : "disabled";
-  const from = envValue(env, "EMAIL_FROM");
-  const replyTo = envValue(env, "EMAIL_REPLY_TO");
   const configured =
     mode === "live" &&
     Boolean(
       envValue(env, "EMAIL_EDGE_FUNCTION_ENABLED") === "true" &&
-      from &&
-      validEmail(from.replace(/^.*<([^>]+)>$/, "$1")) &&
-      (!replyTo || validEmail(replyTo)) &&
       envValue(env, "EMAIL_DISPATCH_SECRET"),
     );
   return {
     mode,
     configured,
-    deliveryTracking: configured && Boolean(envValue(env, "RESEND_WEBHOOK_SECRET")),
+    deliveryTracking: false,
   };
 }
 
