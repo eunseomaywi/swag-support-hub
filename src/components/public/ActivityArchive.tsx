@@ -301,18 +301,30 @@ export function ActivityArchive({
                   type="button"
                   disabled={!previous}
                   onClick={() => previous && onChange(previous)}
-                  className="inline-flex min-h-12 min-w-0 items-center justify-start gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm font-semibold text-swag-navy transition-colors hover:border-swag-blue disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+                  className="inline-flex min-h-14 min-w-0 items-center justify-start gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm font-semibold text-swag-navy transition-colors hover:border-swag-blue disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
                 >
                   <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{previous ? previous.title : "First activity"}</span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.65rem] tracking-[0.12em] uppercase text-swag-navy/55">
+                      Previous
+                    </span>
+                    <span className="block truncate">
+                      {previous ? previous.title : "First activity"}
+                    </span>
+                  </span>
                 </button>
                 <button
                   type="button"
                   disabled={!next}
                   onClick={() => next && onChange(next)}
-                  className="inline-flex min-h-12 min-w-0 items-center justify-end gap-2 rounded-xl border border-border bg-background px-3 text-right text-sm font-semibold text-swag-navy transition-colors hover:border-swag-blue disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+                  className="inline-flex min-h-14 min-w-0 items-center justify-end gap-2 rounded-xl border border-border bg-background px-3 text-right text-sm font-semibold text-swag-navy transition-colors hover:border-swag-blue disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
                 >
-                  <span className="truncate">{next ? next.title : "Last activity"}</span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.65rem] tracking-[0.12em] uppercase text-swag-navy/55">
+                      Next
+                    </span>
+                    <span className="block truncate">{next ? next.title : "Last activity"}</span>
+                  </span>
                   <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                 </button>
               </nav>
