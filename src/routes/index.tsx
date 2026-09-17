@@ -23,9 +23,9 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-20">
-      <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
+      <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.85fr)] md:gap-10 lg:gap-14">
         <div>
-          <h1 className="text-4xl font-bold leading-tight text-swag-navy sm:text-5xl">
+          <h1 className="text-4xl font-bold leading-[1.08] text-swag-navy sm:text-5xl lg:text-6xl">
             Welcome to
             <br />
             <span className="relative inline-block text-swag-navy">
@@ -36,18 +36,28 @@ function Index() {
               />
             </span>
           </h1>
-          <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">
-            SWAG is here to support your wellbeing and help you thrive at school.
+          <p className="mt-6 max-w-3xl text-[1.05rem] leading-7 text-swag-navy/70">
+            SWAG supports your wellbeing, builds connection, and helps you feel supported at school.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <SwagLinkButton to="/form">Get Support</SwagLinkButton>
-            <SwagLinkButton to="/peer-mentor" variant="secondary">
+          <div className="mt-8 grid grid-cols-2 gap-3 lg:flex lg:flex-nowrap">
+            <SwagLinkButton to="/form" className="w-full px-4 lg:w-auto">
+              Get Support
+            </SwagLinkButton>
+            <SwagLinkButton to="/peer-mentor" variant="secondary" className="w-full px-4 lg:w-auto">
               Talk to a Peer
             </SwagLinkButton>
-            <SwagLinkButton to="/form/concern" variant="secondary">
+            <SwagLinkButton
+              to="/form/concern"
+              variant="secondary"
+              className="w-full px-4 lg:w-auto"
+            >
               Share a Concern
             </SwagLinkButton>
-            <SwagLinkButton to="/what-is-swag" variant="secondary">
+            <SwagLinkButton
+              to="/what-is-swag"
+              variant="secondary"
+              className="w-full px-4 lg:w-auto"
+            >
               Discover SWAG
             </SwagLinkButton>
           </div>

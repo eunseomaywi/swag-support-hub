@@ -5,7 +5,7 @@ import { publicNavigation } from "@/content/public-copy";
 import { cn } from "@/lib/utils";
 
 const linkClass =
-  "rounded-md px-1 py-1 text-sm text-muted-foreground transition-colors hover:text-swag-navy data-[status=active]:text-swag-navy data-[status=active]:font-semibold data-[status=active]:border-b-2 data-[status=active]:border-swag-blue";
+  "rounded-md px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-swag-navy data-[status=active]:text-swag-navy data-[status=active]:font-semibold data-[status=active]:border-b-2 data-[status=active]:border-swag-blue";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -68,7 +68,7 @@ export function SiteHeader() {
               to={item.to}
               activeOptions={{ exact: "exact" in item ? item.exact : false }}
               onClick={() => setOpen(false)}
-              className="block border-b border-border/60 py-3 text-sm text-muted-foreground last:border-0 data-[status=active]:font-semibold data-[status=active]:text-swag-navy"
+              className="block border-b border-border/60 py-3 text-sm font-medium text-muted-foreground last:border-0 data-[status=active]:font-semibold data-[status=active]:text-swag-navy"
             >
               {item.label}
             </Link>

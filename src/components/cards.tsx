@@ -25,8 +25,8 @@ export function FeatureCard({
       >
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
-      <h3 className="mt-4 text-lg font-bold text-swag-navy">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+      <h3 className="mt-4 text-xl font-bold leading-snug text-swag-navy">{title}</h3>
+      <p className="mt-2 text-[0.95rem] leading-6 text-swag-navy/65">{description}</p>
     </div>
   );
 }
