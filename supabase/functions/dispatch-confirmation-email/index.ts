@@ -32,7 +32,10 @@ async function equalSecret(actual: string, expected: string) {
 
 async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const url = env("SUPABASE_URL");
-  const key = env("SUPABASE_SERVICE_ROLE_KEY");
+  // These existing security-definer RPCs grant EXECUTE to anon/authenticated
+  // and independently require the dispatch secret. service_role is not granted
+  // EXECUTE; reserve it for the narrow, server-only teacher-name reads below.
+  const key = env("SUPABASE_ANON_KEY");
   const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
     method: "POST",
     headers: {
