@@ -20,10 +20,14 @@ export async function dispatchWithLifetime(
 ): Promise<void> {
   const task = Promise.resolve()
     .then(dispatch)
-    .catch(() => {
+    .catch((error: unknown) => {
       // Recipient failures are recorded by the dispatcher. A transport/dispatcher
       // failure leaves the existing outbox available for retry, never alters booking.
-      console.error({ event: "confirmation_email_dispatch_failed" });
+      const code =
+        error instanceof Error && /^email_edge_dispatch_\d{3}$/.test(error.message)
+          ? error.message
+          : "dispatcher_unavailable";
+      console.error({ event: "confirmation_email_dispatch_failed", code });
     });
   const context = request?.runtime?.cloudflare?.context ?? rawContext;
   try {
