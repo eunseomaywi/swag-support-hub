@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "dev:local": "node scripts/dev-local.mjs",
     "test:peer-support": "node scripts/test-peer-support-concurrency.mjs",
-    "test:email": "node --import tsx --test tests/confirmation-email.test.ts tests/confirmation-dispatch.test.ts",
+    "test:email": "node --import tsx --test tests/confirmation-email.test.ts tests/confirmation-dispatch.test.ts tests/edge-dispatch.test.mjs",
     "test:worker-routes": "node --test tests/worker-routes.test.mjs",
     "build": "node scripts/validate-production-env.mjs && vite build",
     "build:dev": "vite build --mode development",
