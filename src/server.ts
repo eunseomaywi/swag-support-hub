@@ -1,6 +1,8 @@
 import "./lib/error-capture";
 
 import { Webhook } from "svix";
+import type { ServerRequest } from "srvx";
+import { dispatchWithLifetime } from "./lib/email-dispatch-runtime";
 import { verifyStudentManagementToken } from "./lib/confirmation-email";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -22,7 +24,6 @@ type WorkerEnv = {
   STUDENT_LINK_SECRET?: string;
   PUBLIC_SITE_URL?: string;
 };
-type WorkerContext = { waitUntil: (promise: Promise<unknown>) => void };
 type PeerIntakeBody = {
   turnstileToken?: unknown;
   submissionKey?: unknown;
@@ -124,6 +125,9 @@ async function verifyTurnstile(
   secret: string,
   allowedHostnames: string,
 ): Promise<boolean> {
+  const isTestSecret = secret === "1x0000000000000000000000000000000AA";
+  if (isTestSecret && !["localhost", "127.0.0.1", "[::1]"].includes(new URL(request.url).hostname))
+    return false;
   const payload = new FormData();
   payload.set("secret", secret);
   payload.set("response", token);
@@ -139,7 +143,7 @@ async function verifyTurnstile(
     action?: string;
     hostname?: string;
   };
-  if (secret === "1x0000000000000000000000000000000AA") return result.success === true;
+  if (isTestSecret) return result.success === true;
   const hosts = allowedHostnames
     .split(",")
     .map((value) => value.trim())
@@ -332,7 +336,7 @@ async function authenticatedRole(request: Request): Promise<string | null> {
   const role = await response.json();
   return typeof role === "string" ? role : null;
 }
-async function handleDispatchKick(request: Request, env: WorkerEnv, ctx: WorkerContext) {
+async function handleDispatchKick(request: ServerRequest, env: WorkerEnv, ctx: unknown) {
   if (request.method !== "POST")
     return new Response(null, { status: 405, headers: { ...PRIVATE_HEADERS, Allow: "POST" } });
   if (!allowedOrigin(request))
@@ -340,7 +344,7 @@ async function handleDispatchKick(request: Request, env: WorkerEnv, ctx: WorkerC
   const role = await authenticatedRole(request);
   if (!role || !["peer_mentor", "swag_member", "teacher"].includes(role))
     return jsonPrivate({ error: "Authentication required." }, 401);
-  ctx.waitUntil(processEmailOutbox(env));
+  await dispatchWithLifetime(request, ctx, () => processEmailOutbox(env));
   return jsonPrivate({ accepted: true }, 202);
 }
 async function handleSignedManagement(request: Request, env: WorkerEnv) {
@@ -454,9 +458,8 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 }
 
 export default {
-  async fetch(request: Request, rawEnv: unknown, rawCtx: unknown) {
-    const env = (rawEnv ?? {}) as WorkerEnv;
-    const ctx = rawCtx as WorkerContext;
+  async fetch(request: ServerRequest, rawEnv?: unknown, rawCtx?: unknown) {
+    const env = (request.runtime?.cloudflare?.env ?? rawEnv ?? {}) as WorkerEnv;
     try {
       const url = new URL(request.url);
       if (url.pathname === "/api/peer-support/status") {
@@ -469,7 +472,7 @@ export default {
       }
       if (url.pathname === "/api/peer-support/submit") return await handlePeerIntake(request, env);
       if (url.pathname === "/api/peer-support/email/kick")
-        return await handleDispatchKick(request, env, ctx);
+        return await handleDispatchKick(request, env, rawCtx);
       if (url.pathname === "/api/peer-support/manage")
         return await handleSignedManagement(request, env);
       if (url.pathname === "/api/email/resend-webhook")
@@ -500,6 +503,8 @@ export default {
     }
   },
   async scheduled(_controller: unknown, rawEnv: unknown, rawCtx: unknown) {
-    (rawCtx as WorkerContext).waitUntil(processEmailOutbox((rawEnv ?? {}) as WorkerEnv));
+    await dispatchWithLifetime(undefined, rawCtx, () =>
+      processEmailOutbox((rawEnv ?? {}) as WorkerEnv),
+    );
   },
 };

@@ -47,7 +47,11 @@ if (!publishableKey.startsWith("sb_publishable_")) {
 if (/service_role|sb_secret_/i.test(publishableKey)) {
   throw new Error("Production build blocked: a server-only Supabase key was supplied to Vite");
 }
-if (turnstileSiteKey.length > 100 || /secret/i.test(turnstileSiteKey)) {
+if (
+  turnstileSiteKey.length > 100 ||
+  /secret/i.test(turnstileSiteKey) ||
+  /^[123]x0{10}/.test(turnstileSiteKey)
+) {
   throw new Error("Production build blocked: VITE_TURNSTILE_SITE_KEY is invalid");
 }
 

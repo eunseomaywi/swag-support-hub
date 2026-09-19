@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  CONFIRMATION_SUBJECT,
+  CONFIRMATION_SUBJECTS,
   createStudentManagementToken,
   renderConfirmationEmail,
   sendWithResend,
@@ -19,6 +19,7 @@ const base: ConfirmationJob = {
   schedule_version: "40000000-0000-4000-8000-000000000004",
   student_name: "Student <script>alert(1)</script>",
   mentor_name: "Mentor & Guide",
+  teacher_name: "Teacher <Staff>",
   mentor_role: "peer_mentor",
   scheduled_start: "2099-06-12T03:00:00.000Z",
   scheduled_end: "2099-06-12T03:30:00.000Z",
@@ -35,13 +36,56 @@ test("renders three separate confirmation-only templates with no CC/BCC", () => 
   for (const recipient_kind of ["student", "mentor", "teacher"] as const) {
     const rendered = renderConfirmationEmail({ ...base, recipient_kind }, links);
     assert.equal(rendered.to, base.recipient_address);
-    assert.equal(rendered.subject, CONFIRMATION_SUBJECT);
+    assert.equal(rendered.subject, CONFIRMATION_SUBJECTS[recipient_kind]);
     assert.equal("cc" in rendered, false);
     assert.equal("bcc" in rendered, false);
     assert.match(rendered.text, /Korea time/);
     assert.match(rendered.html, /Approved &lt;Room&gt;/);
     assert.doesNotMatch(rendered.html, /<script>alert/);
     assert.doesNotMatch(rendered.text, /category|private story|feeling/i);
+  }
+});
+
+test("recipient copy, greeting and optional location use the shared Gmail template", () => {
+  const student = renderConfirmationEmail(base);
+  assert.match(student.text, /Hi Student,/);
+  assert.match(student.html, /Your meeting is confirmed 💙/);
+  assert.match(student.text, /A space to talk, connect, and get support/);
+  const mentor = renderConfirmationEmail({ ...base, recipient_kind: "mentor" });
+  assert.match(mentor.text, /Hi Mentor,/);
+  assert.match(mentor.html, /Teacher &lt;Staff&gt;/);
+  assert.match(mentor.text, /follow the SWAG Peer Support guidelines/);
+  const teacher = renderConfirmationEmail({ ...base, recipient_kind: "teacher", location: "" });
+  assert.match(teacher.text, /Hi Teacher,/);
+  assert.doesNotMatch(teacher.html, /📍 Location/);
+  for (const email of [student, mentor, teacher]) {
+    assert.match(email.html, /role="presentation"/);
+    assert.doesNotMatch(email.html, /<script|<style|<img|<a |@media/);
+    assert.doesNotMatch(email.html, /student@example.invalid/);
+  }
+});
+
+test("escapes every dynamic detail and ignores sensitive extra fields", () => {
+  const value = `<img src=x onerror="alert('x')"> &`;
+  const job = {
+    ...base,
+    student_name: value,
+    mentor_name: value,
+    teacher_name: value,
+    period_label: value,
+    location: value,
+    private_explanation: "PRIVATE-CONTENT",
+    management_token: "SECRET-TOKEN",
+    other_email: "other@example.invalid",
+  };
+  for (const recipient_kind of ["student", "mentor", "teacher"] as const) {
+    const email = renderConfirmationEmail({ ...job, recipient_kind });
+    assert.doesNotMatch(email.html, /<img|onerror="alert/);
+    assert.match(email.html, /&lt;img src=x onerror=&quot;alert\(&#39;x&#39;\)&quot;&gt; &amp;/);
+    assert.doesNotMatch(
+      email.text + email.html,
+      /PRIVATE-CONTENT|SECRET-TOKEN|other@example.invalid/,
+    );
   }
 });
 
