@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { ROLE_LABELS, type PrivilegedRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { missingProfileFields } from "@/lib/supporter-identity";
 
 export type DashboardNavItem = {
   label: string;
@@ -29,6 +30,7 @@ export function DashboardShell({
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
+  const missing = missingProfileFields(profile?.full_name, profile?.year_group, role);
 
   async function handleSignOut() {
     await signOut();
@@ -51,7 +53,9 @@ export function DashboardShell({
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="truncate font-display text-lg font-bold text-swag-navy">SWAG Hub</p>
+                <p className="break-words font-display text-lg font-bold text-swag-navy">
+                  {profile?.full_name || "Complete your profile"}
+                </p>
                 <span
                   className={cn(
                     "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
@@ -61,9 +65,12 @@ export function DashboardShell({
                   {ROLE_LABELS[role]}
                 </span>
               </div>
-              <p className="truncate text-xs text-muted-foreground">
-                {profile?.full_name || user?.email || "Approved account"}
+              <p className="text-xs text-muted-foreground">
+                {[role !== "teacher" ? profile?.year_group : null, ROLE_LABELS[role]]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
+              <p className="mt-1 break-all text-[11px] text-muted-foreground">{user?.email}</p>
             </div>
           </div>
 
@@ -98,7 +105,7 @@ export function DashboardShell({
 
         <nav
           aria-label={`${ROLE_LABELS[role]} dashboard`}
-          className="hidden border-t border-border/80 px-4 md:flex md:items-center md:gap-1 md:px-6"
+          className="hidden flex-wrap border-t border-border/80 px-4 md:flex md:items-center md:gap-1 md:px-6"
         >
           {nav.map((item) => {
             const active = pathname === item.to;
@@ -157,6 +164,19 @@ export function DashboardShell({
           </nav>
         )}
       </header>
+      {missing.length > 0 && pathname !== "/profile" && (
+        <div
+          role="status"
+          className="mt-5 rounded-xl border border-swag-orange/35 bg-swag-orange/5 p-4 text-sm"
+        >
+          <a href="/profile" className="font-semibold text-swag-blue underline">
+            Complete your profile
+          </a>
+          <span className="ml-2">
+            Missing {missing.join(" and ")}. Your assigned cases remain available.
+          </span>
+        </div>
+      )}
 
       <div className="pb-8 pt-8 sm:pt-10">{children}</div>
     </main>

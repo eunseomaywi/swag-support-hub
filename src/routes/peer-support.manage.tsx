@@ -3,6 +3,7 @@ import { CheckCircle2, Clock3, LockKeyhole, RefreshCw, XCircle } from "lucide-re
 import { useCallback, useEffect, useState } from "react";
 import { PageSection } from "@/components/PageSection";
 import { getSupabaseClient } from "@/lib/supabase";
+import { ROLE_LABELS, type AppRole } from "@/lib/auth";
 
 export const Route = createFileRoute("/peer-support/manage")({
   head: () => ({
@@ -24,6 +25,10 @@ type Management = {
   preferred_periods?: string[];
   submitted_at?: string;
   assigned_mentor_name: string | null;
+  supporter_id: string | null;
+  supporter_year_group: string | null;
+  supporter_role: AppRole | null;
+  identity_recorded: boolean;
   session_id: string | null;
   session_start: string | null;
   session_end: string | null;
@@ -79,13 +84,13 @@ function PeerSupportManage() {
     setError(null);
     if (current.kind === "legacy") {
       const { data, error: rpcError } = await getSupabaseClient().rpc(
-        "get_peer_request_management",
+        "get_peer_request_management_v2",
         { p_token: current.token },
       );
       if (rpcError || !data?.[0]) {
         setRequest(null);
         setError("This private link is invalid, expired, or has been revoked.");
-      } else setRequest(data[0] as Management);
+      } else setRequest(data[0] as unknown as Management);
     } else {
       const response = await fetch("/api/peer-support/manage", {
         method: "POST",
@@ -195,10 +200,25 @@ function PeerSupportManage() {
                   <dd className="font-semibold text-swag-navy">{request.preferred_date}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Mentor</dt>
+                  <dt className="text-muted-foreground">Supporter</dt>
                   <dd className="font-semibold text-swag-navy">
-                    {request.assigned_mentor_name || "Waiting for a mentor"}
+                    {request.supporter_id
+                      ? request.assigned_mentor_name ||
+                        (request.identity_recorded
+                          ? "Assigned · Profile incomplete"
+                          : "Assigned · Name not recorded at confirmation")
+                      : "Waiting for a supporter"}
                   </dd>
+                  {request.supporter_id && (
+                    <dd className="mt-1 text-xs text-muted-foreground">
+                      {[
+                        request.supporter_year_group,
+                        request.supporter_role ? ROLE_LABELS[request.supporter_role] : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </dd>
+                  )}
                 </div>
               </dl>
               {request.session_start && request.session_end && (

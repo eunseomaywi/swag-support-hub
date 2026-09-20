@@ -48,15 +48,15 @@ test("renders three separate confirmation-only templates with no CC/BCC", () => 
 
 test("recipient copy, greeting and optional location use the shared Gmail template", () => {
   const student = renderConfirmationEmail(base);
-  assert.match(student.text, /Hi Student,/);
+  assert.match(student.text, /Hi Student <script>alert\(1\)<\/script>,/);
   assert.match(student.html, /Your meeting is confirmed 💙/);
   assert.match(student.text, /A space to talk, connect, and get support/);
   const mentor = renderConfirmationEmail({ ...base, recipient_kind: "mentor" });
-  assert.match(mentor.text, /Hi Mentor,/);
+  assert.match(mentor.text, /Hi Mentor & Guide,/);
   assert.match(mentor.html, /Teacher &lt;Staff&gt;/);
   assert.match(mentor.text, /follow the SWAG Peer Support guidelines/);
   const teacher = renderConfirmationEmail({ ...base, recipient_kind: "teacher", location: "" });
-  assert.match(teacher.text, /Hi Teacher,/);
+  assert.match(teacher.text, /Hi Teacher <Staff>,/);
   assert.doesNotMatch(teacher.html, /📍 Location/);
   for (const email of [student, mentor, teacher]) {
     assert.match(email.html, /role="presentation"/);

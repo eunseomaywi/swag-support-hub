@@ -2,11 +2,13 @@ import type { ReactNode } from "react";
 import { ProtectedDashboard } from "@/components/auth/ProtectedDashboard";
 import { DashboardShell, type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 import type { PrivilegedRole } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 const PEER_NAV: DashboardNavItem[] = [
   { label: "Home", to: "/peer-mentor/dashboard" },
   { label: "Available Requests", to: "/peer-mentor/requests" },
   { label: "My Cases", to: "/peer-mentor/cases" },
+  { label: "My Profile", to: "/profile" },
 ];
 
 const SWAG_NAV: DashboardNavItem[] = [
@@ -15,6 +17,7 @@ const SWAG_NAV: DashboardNavItem[] = [
   { label: "My Cases", to: "/swag/cases" },
   { label: "Concerns", to: "/swag/concerns" },
   { label: "Escalations", to: "/swag/escalations" },
+  { label: "My Profile", to: "/profile" },
 ];
 
 const TEACHER_NAV: DashboardNavItem[] = [
@@ -23,6 +26,8 @@ const TEACHER_NAV: DashboardNavItem[] = [
   { label: "Concerns", to: "/teacher/concerns" },
   { label: "Escalations", to: "/teacher/escalations" },
   { label: "Bookings", to: "/teacher/bookings" },
+  { label: "Support team", to: "/teacher/team" },
+  { label: "My Profile", to: "/profile" },
 ];
 
 const NAVS: Record<PrivilegedRole, DashboardNavItem[]> = {
@@ -32,9 +37,10 @@ const NAVS: Record<PrivilegedRole, DashboardNavItem[]> = {
 };
 
 export function DashboardPage({ role, children }: { role: PrivilegedRole; children: ReactNode }) {
+  const { user, profile } = useAuth();
   return (
     <ProtectedDashboard requiredRole={role}>
-      <DashboardShell role={role} nav={NAVS[role]}>
+      <DashboardShell key={`${user?.id}:${profile?.role}`} role={role} nav={NAVS[role]}>
         {children}
       </DashboardShell>
     </ProtectedDashboard>

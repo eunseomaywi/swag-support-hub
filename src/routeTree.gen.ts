@@ -14,6 +14,7 @@ import { Route as ActivitiesRouteImport } from './routes/activities'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MembersRouteImport } from './routes/members'
 import { Route as PeerMentorRouteImport } from './routes/peer-mentor'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as WhatIsSwagRouteImport } from './routes/what-is-swag'
 import { Route as FormIndexRouteImport } from './routes/form/index'
 import { Route as FormBookingRouteImport } from './routes/form/booking'
@@ -36,12 +37,15 @@ import { Route as TeacherConcernsRouteImport } from './routes/teacher_.concerns'
 import { Route as TeacherDashboardRouteImport } from './routes/teacher_.dashboard'
 import { Route as TeacherEscalationsRouteImport } from './routes/teacher_.escalations'
 import { Route as TeacherPeerSupportRouteImport } from './routes/teacher_.peer-support'
+import { Route as TeacherTeamRouteImport } from './routes/teacher_.team'
 import { Route as PeerMentorCasesRequestIdRouteImport } from './routes/peer-mentor_.cases_.$requestId'
 import { Route as SwagCasesRequestIdRouteImport } from './routes/swag_.cases_.$requestId'
 import { Route as SwagConcernsConcernIdRouteImport } from './routes/swag_.concerns_.$concernId'
 import { Route as SwagEscalationsRequestIdRouteImport } from './routes/swag_.escalations_.$requestId'
+import { Route as TeacherBookingsSessionIdRouteImport } from './routes/teacher_.bookings_.$sessionId'
 import { Route as TeacherConcernsConcernIdRouteImport } from './routes/teacher_.concerns_.$concernId'
 import { Route as TeacherEscalationsRequestIdRouteImport } from './routes/teacher_.escalations_.$requestId'
+import { Route as TeacherPeerSupportRequestIdRouteImport } from './routes/teacher_.peer-support_.$requestId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -66,6 +70,11 @@ const MembersRoute = MembersRouteImport.update({
 const PeerMentorRoute = PeerMentorRouteImport.update({
   id: '/peer-mentor',
   path: '/peer-mentor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WhatIsSwagRoute = WhatIsSwagRouteImport.update({
@@ -178,6 +187,11 @@ const TeacherPeerSupportRoute = TeacherPeerSupportRouteImport.update({
   path: '/teacher/peer-support',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeacherTeamRoute = TeacherTeamRouteImport.update({
+  id: '/teacher_/team',
+  path: '/teacher/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PeerMentorCasesRequestIdRoute =
   PeerMentorCasesRequestIdRouteImport.update({
     id: '/peer-mentor_/cases_/$requestId',
@@ -200,6 +214,12 @@ const SwagEscalationsRequestIdRoute =
     path: '/swag/escalations/$requestId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const TeacherBookingsSessionIdRoute =
+  TeacherBookingsSessionIdRouteImport.update({
+    id: '/teacher_/bookings_/$sessionId',
+    path: '/teacher/bookings/$sessionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const TeacherConcernsConcernIdRoute =
   TeacherConcernsConcernIdRouteImport.update({
     id: '/teacher_/concerns_/$concernId',
@@ -212,6 +232,12 @@ const TeacherEscalationsRequestIdRoute =
     path: '/teacher/escalations/$requestId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const TeacherPeerSupportRequestIdRoute =
+  TeacherPeerSupportRequestIdRouteImport.update({
+    id: '/teacher_/peer-support_/$requestId',
+    path: '/teacher/peer-support/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -219,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
+  '/profile': typeof ProfileRoute
   '/what-is-swag': typeof WhatIsSwagRoute
   '/form/booking': typeof FormBookingRoute
   '/form/concern': typeof FormConcernRoute
@@ -240,13 +267,16 @@ export interface FileRoutesByFullPath {
   '/teacher/dashboard': typeof TeacherDashboardRoute
   '/teacher/escalations': typeof TeacherEscalationsRoute
   '/teacher/peer-support': typeof TeacherPeerSupportRoute
+  '/teacher/team': typeof TeacherTeamRoute
   '/form/': typeof FormIndexRoute
   '/peer-mentor/cases/$requestId': typeof PeerMentorCasesRequestIdRoute
   '/swag/cases/$requestId': typeof SwagCasesRequestIdRoute
   '/swag/concerns/$concernId': typeof SwagConcernsConcernIdRoute
   '/swag/escalations/$requestId': typeof SwagEscalationsRequestIdRoute
+  '/teacher/bookings/$sessionId': typeof TeacherBookingsSessionIdRoute
   '/teacher/concerns/$concernId': typeof TeacherConcernsConcernIdRoute
   '/teacher/escalations/$requestId': typeof TeacherEscalationsRequestIdRoute
+  '/teacher/peer-support/$requestId': typeof TeacherPeerSupportRequestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -254,6 +284,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
+  '/profile': typeof ProfileRoute
   '/what-is-swag': typeof WhatIsSwagRoute
   '/form/booking': typeof FormBookingRoute
   '/form/concern': typeof FormConcernRoute
@@ -275,13 +306,16 @@ export interface FileRoutesByTo {
   '/teacher/dashboard': typeof TeacherDashboardRoute
   '/teacher/escalations': typeof TeacherEscalationsRoute
   '/teacher/peer-support': typeof TeacherPeerSupportRoute
+  '/teacher/team': typeof TeacherTeamRoute
   '/form': typeof FormIndexRoute
   '/peer-mentor/cases/$requestId': typeof PeerMentorCasesRequestIdRoute
   '/swag/cases/$requestId': typeof SwagCasesRequestIdRoute
   '/swag/concerns/$concernId': typeof SwagConcernsConcernIdRoute
   '/swag/escalations/$requestId': typeof SwagEscalationsRequestIdRoute
+  '/teacher/bookings/$sessionId': typeof TeacherBookingsSessionIdRoute
   '/teacher/concerns/$concernId': typeof TeacherConcernsConcernIdRoute
   '/teacher/escalations/$requestId': typeof TeacherEscalationsRequestIdRoute
+  '/teacher/peer-support/$requestId': typeof TeacherPeerSupportRequestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -290,6 +324,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/members': typeof MembersRoute
   '/peer-mentor': typeof PeerMentorRoute
+  '/profile': typeof ProfileRoute
   '/what-is-swag': typeof WhatIsSwagRoute
   '/form/booking': typeof FormBookingRoute
   '/form/concern': typeof FormConcernRoute
@@ -311,13 +346,16 @@ export interface FileRoutesById {
   '/teacher_/dashboard': typeof TeacherDashboardRoute
   '/teacher_/escalations': typeof TeacherEscalationsRoute
   '/teacher_/peer-support': typeof TeacherPeerSupportRoute
+  '/teacher_/team': typeof TeacherTeamRoute
   '/form/': typeof FormIndexRoute
   '/peer-mentor_/cases_/$requestId': typeof PeerMentorCasesRequestIdRoute
   '/swag_/cases_/$requestId': typeof SwagCasesRequestIdRoute
   '/swag_/concerns_/$concernId': typeof SwagConcernsConcernIdRoute
   '/swag_/escalations_/$requestId': typeof SwagEscalationsRequestIdRoute
+  '/teacher_/bookings_/$sessionId': typeof TeacherBookingsSessionIdRoute
   '/teacher_/concerns_/$concernId': typeof TeacherConcernsConcernIdRoute
   '/teacher_/escalations_/$requestId': typeof TeacherEscalationsRequestIdRoute
+  '/teacher_/peer-support_/$requestId': typeof TeacherPeerSupportRequestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -327,6 +365,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/members'
     | '/peer-mentor'
+    | '/profile'
     | '/what-is-swag'
     | '/form/booking'
     | '/form/concern'
@@ -348,13 +387,16 @@ export interface FileRouteTypes {
     | '/teacher/dashboard'
     | '/teacher/escalations'
     | '/teacher/peer-support'
+    | '/teacher/team'
     | '/form/'
     | '/peer-mentor/cases/$requestId'
     | '/swag/cases/$requestId'
     | '/swag/concerns/$concernId'
     | '/swag/escalations/$requestId'
+    | '/teacher/bookings/$sessionId'
     | '/teacher/concerns/$concernId'
     | '/teacher/escalations/$requestId'
+    | '/teacher/peer-support/$requestId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -362,6 +404,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/members'
     | '/peer-mentor'
+    | '/profile'
     | '/what-is-swag'
     | '/form/booking'
     | '/form/concern'
@@ -383,13 +426,16 @@ export interface FileRouteTypes {
     | '/teacher/dashboard'
     | '/teacher/escalations'
     | '/teacher/peer-support'
+    | '/teacher/team'
     | '/form'
     | '/peer-mentor/cases/$requestId'
     | '/swag/cases/$requestId'
     | '/swag/concerns/$concernId'
     | '/swag/escalations/$requestId'
+    | '/teacher/bookings/$sessionId'
     | '/teacher/concerns/$concernId'
     | '/teacher/escalations/$requestId'
+    | '/teacher/peer-support/$requestId'
   id:
     | '__root__'
     | '/'
@@ -397,6 +443,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/members'
     | '/peer-mentor'
+    | '/profile'
     | '/what-is-swag'
     | '/form/booking'
     | '/form/concern'
@@ -418,13 +465,16 @@ export interface FileRouteTypes {
     | '/teacher_/dashboard'
     | '/teacher_/escalations'
     | '/teacher_/peer-support'
+    | '/teacher_/team'
     | '/form/'
     | '/peer-mentor_/cases_/$requestId'
     | '/swag_/cases_/$requestId'
     | '/swag_/concerns_/$concernId'
     | '/swag_/escalations_/$requestId'
+    | '/teacher_/bookings_/$sessionId'
     | '/teacher_/concerns_/$concernId'
     | '/teacher_/escalations_/$requestId'
+    | '/teacher_/peer-support_/$requestId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -433,6 +483,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MembersRoute: typeof MembersRoute
   PeerMentorRoute: typeof PeerMentorRoute
+  ProfileRoute: typeof ProfileRoute
   WhatIsSwagRoute: typeof WhatIsSwagRoute
   FormBookingRoute: typeof FormBookingRoute
   FormConcernRoute: typeof FormConcernRoute
@@ -454,13 +505,16 @@ export interface RootRouteChildren {
   TeacherDashboardRoute: typeof TeacherDashboardRoute
   TeacherEscalationsRoute: typeof TeacherEscalationsRoute
   TeacherPeerSupportRoute: typeof TeacherPeerSupportRoute
+  TeacherTeamRoute: typeof TeacherTeamRoute
   FormIndexRoute: typeof FormIndexRoute
   PeerMentorCasesRequestIdRoute: typeof PeerMentorCasesRequestIdRoute
   SwagCasesRequestIdRoute: typeof SwagCasesRequestIdRoute
   SwagConcernsConcernIdRoute: typeof SwagConcernsConcernIdRoute
   SwagEscalationsRequestIdRoute: typeof SwagEscalationsRequestIdRoute
+  TeacherBookingsSessionIdRoute: typeof TeacherBookingsSessionIdRoute
   TeacherConcernsConcernIdRoute: typeof TeacherConcernsConcernIdRoute
   TeacherEscalationsRequestIdRoute: typeof TeacherEscalationsRequestIdRoute
+  TeacherPeerSupportRequestIdRoute: typeof TeacherPeerSupportRequestIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -498,6 +552,13 @@ declare module '@tanstack/react-router' {
       path: '/peer-mentor'
       fullPath: '/peer-mentor'
       preLoaderRoute: typeof PeerMentorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/what-is-swag': {
@@ -654,6 +715,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeacherPeerSupportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teacher_/team': {
+      id: '/teacher_/team'
+      path: '/teacher/team'
+      fullPath: '/teacher/team'
+      preLoaderRoute: typeof TeacherTeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/peer-mentor_/cases_/$requestId': {
       id: '/peer-mentor_/cases_/$requestId'
       path: '/peer-mentor/cases/$requestId'
@@ -682,6 +750,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SwagEscalationsRequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teacher_/bookings_/$sessionId': {
+      id: '/teacher_/bookings_/$sessionId'
+      path: '/teacher/bookings/$sessionId'
+      fullPath: '/teacher/bookings/$sessionId'
+      preLoaderRoute: typeof TeacherBookingsSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/teacher_/concerns_/$concernId': {
       id: '/teacher_/concerns_/$concernId'
       path: '/teacher/concerns/$concernId'
@@ -696,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeacherEscalationsRequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teacher_/peer-support_/$requestId': {
+      id: '/teacher_/peer-support_/$requestId'
+      path: '/teacher/peer-support/$requestId'
+      fullPath: '/teacher/peer-support/$requestId'
+      preLoaderRoute: typeof TeacherPeerSupportRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -705,6 +787,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MembersRoute: MembersRoute,
   PeerMentorRoute: PeerMentorRoute,
+  ProfileRoute: ProfileRoute,
   WhatIsSwagRoute: WhatIsSwagRoute,
   FormBookingRoute: FormBookingRoute,
   FormConcernRoute: FormConcernRoute,
@@ -726,13 +809,16 @@ const rootRouteChildren: RootRouteChildren = {
   TeacherDashboardRoute: TeacherDashboardRoute,
   TeacherEscalationsRoute: TeacherEscalationsRoute,
   TeacherPeerSupportRoute: TeacherPeerSupportRoute,
+  TeacherTeamRoute: TeacherTeamRoute,
   FormIndexRoute: FormIndexRoute,
   PeerMentorCasesRequestIdRoute: PeerMentorCasesRequestIdRoute,
   SwagCasesRequestIdRoute: SwagCasesRequestIdRoute,
   SwagConcernsConcernIdRoute: SwagConcernsConcernIdRoute,
   SwagEscalationsRequestIdRoute: SwagEscalationsRequestIdRoute,
+  TeacherBookingsSessionIdRoute: TeacherBookingsSessionIdRoute,
   TeacherConcernsConcernIdRoute: TeacherConcernsConcernIdRoute,
   TeacherEscalationsRequestIdRoute: TeacherEscalationsRequestIdRoute,
+  TeacherPeerSupportRequestIdRoute: TeacherPeerSupportRequestIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -23,6 +23,10 @@ test("real Edge handler uses existing secret-gated RPC grants and renders separa
     recipient_address: `${kind}@example.invalid`,
     student_name: "Alex Student",
     mentor_name: "Jamie Mentor",
+    teacher_name: "Casey Teacher",
+    mentor_role: "swag_member",
+    mentor_year_group: "Year 12",
+    student_year_group: "Year 9",
     scheduled_start: "2099-09-21T03:00:00Z",
     scheduled_end: "2099-09-21T03:30:00Z",
     period_label: "Lunch",
@@ -50,16 +54,12 @@ test("real Edge handler uses existing secret-gated RPC grants and renders separa
       assert.equal(options.headers.authorization, "Bearer anon-jwt");
       const body = JSON.parse(options.body);
       assert.equal(body.p_dispatch_secret, settings.EMAIL_DISPATCH_SECRET);
-      if (url.endsWith("claim_confirmation_email_jobs")) return Response.json(jobs);
+      if (url.endsWith("claim_confirmation_email_jobs_v2")) return Response.json(jobs);
       assert.ok(url.endsWith("finish_confirmation_email_job"));
       finished.push(body);
       return Response.json(true);
     }
-    assert.equal(options.headers.authorization, "Bearer service-key");
-    if (url.includes("/peer_sessions?"))
-      return Response.json([{ supervisor_teacher_id: "teacher" }]);
-    assert.ok(url.includes("/profiles?") && url.endsWith("select=full_name"));
-    return Response.json([{ full_name: "Casey Teacher" }]);
+    assert.fail("Dispatch must use the event snapshot, never current profile lookups");
   });
   const bundle = await build({
     entryPoints: ["supabase/functions/dispatch-confirmation-email/index.ts"],
@@ -106,6 +106,7 @@ test("real Edge handler uses existing secret-gated RPC grants and renders separa
   assert.equal(finished.length, 3);
   assert.ok(finished.every((body) => body.p_outcome === "submitted"));
   assert.match(sent[1].text, /Casey Teacher/);
-  assert.match(sent[2].text, /Hi Casey,/);
+  assert.match(sent[2].text, /Hi Casey Teacher,/);
+  assert.match(sent[0].text, /Jamie Mentor · Year 12 · SWAG Member/);
   assert.ok(sent.every((message) => message.html.includes("SWAG PEER SUPPORT") && message.text));
 });

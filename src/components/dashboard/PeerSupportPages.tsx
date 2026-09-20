@@ -15,6 +15,9 @@ import { SummaryCard } from "@/components/dashboard/DashboardPieces";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { Database } from "@/types/database";
 import { confirmationBlocker, confirmationChecklist } from "@/lib/peer-readiness";
+import { queueErrorMessage } from "@/lib/supporter-identity";
+import { SupporterIdentity } from "./SupporterIdentity";
+import type { PeerDetail } from "@/lib/peer-detail";
 
 type PeerRole = "peer_mentor" | "swag_member";
 type QueueRow = {
@@ -195,6 +198,7 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [includePassed, setIncludePassed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -206,20 +210,20 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
     );
     if (rpcError) {
       setRows([]);
-      setError("Requests could not be loaded. Please try again.");
+      setError(queueErrorMessage(rpcError.code));
     } else setRows((data ?? []) as QueueRow[]);
     setLoading(false);
   }, [includePassed]);
   useFocusRefresh(load);
   async function accept(id: string) {
     setBusy(id);
-    setError(null);
+    setActionError(null);
     const { data, error: rpcError } = await getSupabaseClient().rpc("claim_peer_request", {
       p_request_id: id,
     });
     const result = data?.[0];
     if (rpcError || !result?.success) {
-      setError(
+      setActionError(
         result?.outcome === "self_assignment_blocked"
           ? "You cannot accept your own support request."
           : "Another supporter or a Teacher may already have assigned this request. The list has been refreshed.",
@@ -230,11 +234,13 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
   }
   async function toggle(row: QueueRow) {
     setBusy(row.request_id);
+    setActionError(null);
     const rpc = row.dismissed ? "undo_dismiss_peer_request" : "dismiss_peer_request";
-    const { error: rpcError } = await getSupabaseClient().rpc(rpc, {
+    const { data, error: rpcError } = await getSupabaseClient().rpc(rpc, {
       p_request_id: row.request_id,
     });
-    if (rpcError) setError("That preference could not be saved.");
+    if (rpcError || !data)
+      setActionError("That preference could not be saved. The request may no longer be open.");
     await load();
     setBusy(null);
   }
@@ -263,17 +269,17 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
           Refresh
         </button>
       </div>
-      {error && (
+      {(error || actionError) && (
         <p
           className="mb-4 rounded-lg border border-swag-orange/35 bg-swag-orange/5 p-3 text-sm text-swag-navy"
           role="alert"
         >
-          {error}
+          {error || actionError}
         </p>
       )}
       {loading ? (
         <PageState>Loading available requests…</PageState>
-      ) : rows.length === 0 ? (
+      ) : error ? null : rows.length === 0 ? (
         <PageState tone="green">There are no available requests right now.</PageState>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -398,7 +404,7 @@ export function MyCases({ role }: { role: PeerRole }) {
 }
 
 export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: string }) {
-  const [row, setRow] = useState<CaseRow | null>(null);
+  const [row, setRow] = useState<PeerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -407,11 +413,10 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
   const [selectedPeriod, setSelectedPeriod] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error: rpcError } = await getSupabaseClient().rpc("list_my_peer_cases", {
-      p_page_offset: 0,
-      p_page_size: 100,
+    const { data, error: rpcError } = await getSupabaseClient().rpc("get_my_peer_case_detail", {
+      p_request_id: requestId,
     });
-    const found = data?.find((item) => item.request_id === requestId) ?? null;
+    const found = data as unknown as PeerDetail | null;
     setRow(found);
     setConfirmationOptions(null);
     if (found?.status === "accepted" && !found.session_id) {
@@ -473,13 +478,13 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
         : kind === "no_show"
           ? await getSupabaseClient().rpc("mark_peer_case_no_show", { p_request_id: requestId })
           : await getSupabaseClient().rpc("cancel_my_peer_session", { p_request_id: requestId });
-    if (result.error || !result.data)
+    if (result.error || !result.data) {
       setError(
         kind === "cancel"
           ? "The appointment could not be cancelled."
           : "That outcome can only be recorded after the appointment ends and from an active confirmed state.",
       );
-    await load();
+    } else await load();
     setBusy(false);
   }
   async function escalate() {
@@ -493,7 +498,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
       p_reason: reason,
     });
     if (rpcError || !data) setError("This case could not be escalated.");
-    await load();
+    else await load();
     setBusy(false);
   }
   async function retry(jobId: string) {
@@ -503,7 +508,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
     });
     if (rpcError || !data)
       setError("That confirmation email cannot be retried from the current state.");
-    await load();
+    else await load();
     setBusy(false);
   }
   if (loading) return <PageState>Loading the case…</PageState>;
@@ -601,6 +606,10 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
         <div className="grid gap-5 lg:grid-cols-[1fr_0.7fr]">
           <section className="paper-card border-swag-blue/35 p-5 sm:p-7">
             <h2 className="text-lg font-bold text-swag-navy">Case details</h2>
+            <div className="mt-4">
+              <p className="mb-1 text-xs text-muted-foreground">Supporter</p>
+              <SupporterIdentity identity={row} />
+            </div>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-muted-foreground">Contact email</dt>
@@ -632,13 +641,15 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
                 <dl className="mt-2 grid gap-2 sm:grid-cols-3">
                   {[
                     ["Student", row.student_email_status, row.student_email_job_id],
-                    ["Mentor", row.mentor_email_status, row.mentor_email_job_id],
+                    ["Supporter", row.mentor_email_status, row.mentor_email_job_id],
                     ["Teacher", row.teacher_email_status, row.teacher_email_job_id],
                   ].map(([label, status, job]) => (
                     <div key={label}>
                       <dt className="text-muted-foreground">{label}</dt>
-                      <dd className="font-semibold capitalize text-swag-navy">
-                        {status?.replace("_", " ") || "not queued"}
+                      <dd className="font-semibold text-swag-navy">
+                        {status === "submitted"
+                          ? "Accepted by mail server"
+                          : status?.replace("_", " ") || "Sent after confirmation"}
                       </dd>
                       {job && (status === "failed" || status === "uncertain") && (
                         <button
@@ -770,14 +781,18 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
               {["accepted", "scheduled"].includes(row.status) && row.session_id && (
                 <>
                   <button
-                    disabled={busy}
+                    disabled={
+                      busy || !row.session_end || new Date(row.session_end).getTime() > Date.now()
+                    }
                     onClick={() => void action("complete")}
                     className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
                   >
                     Mark completed
                   </button>
                   <button
-                    disabled={busy}
+                    disabled={
+                      busy || !row.session_end || new Date(row.session_end).getTime() > Date.now()
+                    }
                     onClick={() => void action("no_show")}
                     className="min-h-11 rounded-lg border border-swag-orange/40 px-4 text-sm font-semibold text-swag-orange"
                   >

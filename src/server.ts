@@ -369,7 +369,9 @@ async function handleSignedManagement(request: Request, env: WorkerEnv) {
   const verified = await verifyStudentManagementToken(token, linkSecret);
   if (!verified) return jsonPrivate({ error: "This private link is invalid or expired." }, 403);
   const rpc = await supabaseRpc<Array<Record<string, unknown>>>(
-    action === "cancel" ? "cancel_peer_request_internal" : "get_peer_request_management_internal",
+    action === "cancel"
+      ? "cancel_peer_request_internal"
+      : "get_peer_request_management_internal_v2",
     {
       p_dispatch_secret: dispatchSecret,
       p_request_id: verified.requestId,

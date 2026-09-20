@@ -34,7 +34,7 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const url = env("SUPABASE_URL");
   // These existing security-definer RPCs grant EXECUTE to anon/authenticated
   // and independently require the dispatch secret. service_role is not granted
-  // EXECUTE; reserve it for the narrow, server-only teacher-name reads below.
+  // EXECUTE. Identity is read from the immutable confirmation event, not live profiles.
   const key = env("SUPABASE_ANON_KEY");
   const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
     method: "POST",
@@ -47,29 +47,6 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   });
   if (!response.ok) throw new Error(`rpc_${name}_${response.status}`);
   return (await response.json()) as T;
-}
-
-// Read only the confirmed session's supervising teacher, never request content.
-async function teacherName(sessionId: string): Promise<string | null> {
-  const headers = {
-    apikey: env("SUPABASE_SERVICE_ROLE_KEY"),
-    authorization: `Bearer ${env("SUPABASE_SERVICE_ROLE_KEY")}`,
-  };
-  const sessionResponse = await fetch(
-    `${env("SUPABASE_URL")}/rest/v1/peer_sessions?id=eq.${encodeURIComponent(sessionId)}&select=supervisor_teacher_id`,
-    { headers },
-  );
-  if (!sessionResponse.ok) throw new Error("teacher_lookup_failed");
-  const sessions = await sessionResponse.json();
-  const teacherId = sessions[0]?.supervisor_teacher_id;
-  if (!teacherId) return null;
-  const profileResponse = await fetch(
-    `${env("SUPABASE_URL")}/rest/v1/profiles?id=eq.${encodeURIComponent(teacherId)}&select=full_name`,
-    { headers },
-  );
-  if (!profileResponse.ok) throw new Error("teacher_lookup_failed");
-  const profiles = await profileResponse.json();
-  return profiles[0]?.full_name || null;
 }
 
 Deno.serve(async (request) => {
@@ -107,7 +84,6 @@ Deno.serve(async (request) => {
   const processed = await dispatchConfirmationBatch({
     secret: dispatchSecret,
     rpc,
-    teacherName,
     send: (message) =>
       sendWithGmail(
         { user: smtpUser, password: smtpPassword, ...(replyTo ? { replyTo } : {}) },

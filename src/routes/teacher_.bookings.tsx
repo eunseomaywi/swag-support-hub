@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DashboardPage } from "@/components/dashboard/DashboardLayout";
-import { TeacherBookingsPlaceholder } from "@/components/dashboard/HomePages";
+import { TeacherRequestsPage } from "@/components/dashboard/TeacherPeerDetails";
+import { teacherListSearch } from "@/lib/peer-detail";
 export const Route = createFileRoute("/teacher_/bookings")({
+  validateSearch: (search) => teacherListSearch({ filter: "scheduled", ...search }),
   component: () => (
     <DashboardPage role="teacher">
-      <TeacherBookingsPlaceholder />
+      <TeacherRequestsPage meetings />
     </DashboardPage>
   ),
 });

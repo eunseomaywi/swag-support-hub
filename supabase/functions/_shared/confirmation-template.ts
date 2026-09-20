@@ -2,8 +2,12 @@ export type ConfirmationDetails = {
   recipient_kind: "student" | "mentor" | "teacher";
   recipient_address: string;
   student_name: string;
+  student_year_group?: string | null;
   mentor_name: string | null;
+  mentor_year_group?: string | null;
+  mentor_role?: "peer_mentor" | "swag_member" | null;
   teacher_name?: string | null;
+  identity_snapshot_version?: number;
   scheduled_start: string;
   scheduled_end: string;
   period_label: string;
@@ -50,8 +54,8 @@ function renderCard(
   closing = "",
   tagline = "",
 ) {
-  const firstName = name?.trim().split(/\s+/)[0];
-  const greeting = firstName ? `Hi ${firstName},` : "Hi there,";
+  const fullName = name?.trim();
+  const greeting = fullName ? `Hi ${fullName},` : "Hi there,";
   const footer = "SWAG — Student Welfare Awareness Group";
   const rows = details
     .map(
@@ -89,6 +93,24 @@ function schedule(job: ConfirmationDetails): Detail[] {
 function location(job: ConfirmationDetails): Detail[] {
   return job.location?.trim() ? [["📍 Location", job.location.trim()]] : [];
 }
+function supporter(job: ConfirmationDetails): string {
+  const role =
+    job.mentor_role === "swag_member"
+      ? "SWAG Member"
+      : job.mentor_role === "peer_mentor"
+        ? "Peer Mentor"
+        : null;
+  return [
+    job.mentor_name?.trim() || "Assigned supporter · name not recorded",
+    job.mentor_year_group,
+    role,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+function student(job: ConfirmationDetails): string {
+  return [job.student_name, job.student_year_group].filter(Boolean).join(" · ");
+}
 
 export function renderStudentConfirmationEmail(job: ConfirmationDetails) {
   return renderCard(
@@ -96,11 +118,7 @@ export function renderStudentConfirmationEmail(job: ConfirmationDetails) {
     "Your meeting is confirmed 💙",
     job.student_name,
     "Your SWAG Peer Support meeting has been confirmed. Here are the details:",
-    [
-      ...schedule(job),
-      ["👋 Peer Supporter", job.mentor_name?.trim() || "Your assigned Peer Supporter"],
-      ...location(job),
-    ],
+    [...schedule(job), ["👋 Supporter", supporter(job)], ...location(job)],
     "If anything changes or you are unable to attend, please speak to your Peer Supporter or a trusted member of staff.",
     "A space to talk, connect, and get support.",
   );
@@ -113,7 +131,7 @@ export function renderSupporterConfirmationEmail(job: ConfirmationDetails) {
     job.mentor_name,
     "A Peer Support meeting assigned to you has now been confirmed.",
     [
-      ["👤 Student", job.student_name],
+      ["👤 Student", student(job)],
       ...schedule(job),
       ...location(job),
       ["🏫 Supervising Teacher", job.teacher_name?.trim() || "Your supervising teacher"],
@@ -129,8 +147,8 @@ export function renderTeacherConfirmationEmail(job: ConfirmationDetails) {
     job.teacher_name,
     "A SWAG Peer Support meeting under your supervision has been confirmed.",
     [
-      ["👤 Student", job.student_name],
-      ["💙 Peer Supporter", job.mentor_name?.trim() || "Assigned Peer Supporter"],
+      ["👤 Student", student(job)],
+      ["💙 Supporter", supporter(job)],
       ...schedule(job),
       ...location(job),
     ],

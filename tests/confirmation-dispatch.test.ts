@@ -14,6 +14,10 @@ test("Gmail dispatcher sends separate recipients and records each outcome; retry
     recipient_address: `${kind}@example.invalid`,
     student_name: "Student Test",
     mentor_name: "Mentor Test",
+    teacher_name: "Teacher Test",
+    mentor_role: "swag_member",
+    mentor_year_group: "Year 12",
+    student_year_group: "Year 9",
     scheduled_start: "2099-09-21T03:00:00Z",
     scheduled_end: "2099-09-21T03:30:00Z",
     period_label: "Lunch",
@@ -25,7 +29,7 @@ test("Gmail dispatcher sends separate recipients and records each outcome; retry
   const deps = {
     secret: "test-only",
     rpc: async <T>(name: string, body: Record<string, unknown>): Promise<T> => {
-      if (name === "claim_confirmation_email_jobs") {
+      if (name === "claim_confirmation_email_jobs_v2") {
         const batch = claimed ? [] : jobs;
         claimed = true;
         return batch as T;
@@ -33,10 +37,6 @@ test("Gmail dispatcher sends separate recipients and records each outcome; retry
       assert.equal(name, "finish_confirmation_email_job");
       finished.push(body);
       return true as T;
-    },
-    teacherName: async (id: string) => {
-      assert.equal(id, "confirmed-session");
-      return "Teacher Test";
     },
     send: async (message: { to: string; html: string; text: string }) => {
       assert.equal(typeof message.to, "string");

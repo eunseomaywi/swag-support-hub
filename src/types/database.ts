@@ -205,6 +205,7 @@ export type Database = {
           created_at: string;
           event_type: string;
           id: string;
+          identity_snapshot: Json | null;
           mentor_id: string;
           request_id: string;
           schedule_version: string;
@@ -215,6 +216,7 @@ export type Database = {
           created_at?: string;
           event_type?: string;
           id?: string;
+          identity_snapshot?: Json | null;
           mentor_id: string;
           request_id: string;
           schedule_version: string;
@@ -225,6 +227,7 @@ export type Database = {
           created_at?: string;
           event_type?: string;
           id?: string;
+          identity_snapshot?: Json | null;
           mentor_id?: string;
           request_id?: string;
           schedule_version?: string;
@@ -809,6 +812,7 @@ export type Database = {
           id: string;
           role: Database["public"]["Enums"]["app_role"];
           updated_at: string;
+          year_group: string | null;
         };
         Insert: {
           created_at?: string;
@@ -817,6 +821,7 @@ export type Database = {
           id: string;
           role?: Database["public"]["Enums"]["app_role"];
           updated_at?: string;
+          year_group?: string | null;
         };
         Update: {
           created_at?: string;
@@ -825,6 +830,7 @@ export type Database = {
           id?: string;
           role?: Database["public"]["Enums"]["app_role"];
           updated_at?: string;
+          year_group?: string | null;
         };
         Relationships: [];
       };
@@ -868,6 +874,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_set_staff_registration: {
+        Args: {
+          p_booking_enabled: boolean;
+          p_profile_id: string;
+          p_role: Database["public"]["Enums"]["app_role"];
+        };
+        Returns: boolean;
+      };
       authorize_swag_escalation: {
         Args: { p_profile_id: string; p_request_id: string };
         Returns: boolean;
@@ -919,6 +933,15 @@ export type Database = {
           session_id: string;
           student_name: string;
         }[];
+      };
+      claim_confirmation_email_jobs_v2: {
+        Args: {
+          p_dispatch_secret: string;
+          p_lease_seconds?: number;
+          p_limit?: number;
+          p_worker_id: string;
+        };
+        Returns: Json[];
       };
       claim_peer_request: {
         Args: { p_request_id: string };
@@ -1012,6 +1035,7 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      get_my_peer_case_detail: { Args: { p_request_id: string }; Returns: Json };
       get_peer_assignment_policy: {
         Args: never;
         Returns: {
@@ -1100,6 +1124,19 @@ export type Database = {
           status: Database["public"]["Enums"]["peer_request_status"];
         }[];
       };
+      get_peer_request_management_internal_v2: {
+        Args: {
+          p_dispatch_secret: string;
+          p_request_id: string;
+          p_schedule_version: string;
+          p_session_id: string;
+        };
+        Returns: Json[];
+      };
+      get_peer_request_management_v2: {
+        Args: { p_token: string };
+        Returns: Json[];
+      };
       get_peer_support_settings: {
         Args: never;
         Returns: {
@@ -1111,6 +1148,14 @@ export type Database = {
           supervisor_teacher_id: string;
           supervisor_teacher_name: string;
         }[];
+      };
+      get_teacher_peer_meeting: {
+        Args: { p_session_id: string };
+        Returns: Json;
+      };
+      get_teacher_peer_request: {
+        Args: { p_request_id: string };
+        Returns: Json;
       };
       get_teacher_peer_support_counts: {
         Args: never;
@@ -1237,6 +1282,11 @@ export type Database = {
           supporter_role: Database["public"]["Enums"]["app_role"];
         }[];
       };
+      list_peer_supporter_candidates_v2: {
+        Args: { p_request_id: string };
+        Returns: Json[];
+      };
+      list_support_team: { Args: never; Returns: Json[] };
       list_swag_escalation_assignees: {
         Args: never;
         Returns: {
@@ -1250,6 +1300,14 @@ export type Database = {
           full_name: string;
           profile_id: string;
         }[];
+      };
+      list_teacher_peer_requests_v2: {
+        Args: {
+          p_filter?: string;
+          p_page_offset?: number;
+          p_page_size?: number;
+        };
+        Returns: Json;
       };
       list_teacher_peer_support_overview: {
         Args: { p_page_offset?: number; p_page_size?: number };
@@ -1286,6 +1344,10 @@ export type Database = {
         Args: { p_request_id: string };
         Returns: boolean;
       };
+      peer_detail_internal: {
+        Args: { p_request_id: string; p_session_id?: string };
+        Returns: Json;
+      };
       peer_request_id_for_token: { Args: { p_token: string }; Returns: string };
       phase5_period_label: { Args: { p_period: string }; Returns: string };
       phase5_suppress_request_email: {
@@ -1320,6 +1382,10 @@ export type Database = {
       retry_confirmation_email: {
         Args: { p_outbox_id: string };
         Returns: boolean;
+      };
+      save_my_staff_profile: {
+        Args: { p_full_name: string; p_year_group?: string };
+        Returns: Json;
       };
       save_peer_support_settings: {
         Args: {
@@ -1402,6 +1468,7 @@ export type Database = {
               request_id: string;
             }[];
           };
+      supporter_identity_internal: { Args: { p_id: string }; Returns: Json };
       take_concern: {
         Args: { p_concern_id: string };
         Returns: {
@@ -1431,9 +1498,25 @@ export type Database = {
           success: boolean;
         }[];
       };
+      teacher_save_supporter_profile: {
+        Args: {
+          p_full_name: string;
+          p_profile_id: string;
+          p_year_group: string;
+        };
+        Returns: boolean;
+      };
       undo_dismiss_peer_request: {
         Args: { p_request_id: string };
         Returns: boolean;
+      };
+      validate_staff_identity: {
+        Args: {
+          p_name: string;
+          p_role: Database["public"]["Enums"]["app_role"];
+          p_year: string;
+        };
+        Returns: undefined;
       };
       withdraw_peer_availability: {
         Args: { p_slot_id: string };

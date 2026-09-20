@@ -13,9 +13,12 @@ export type ConfirmationJob = {
   session_id: string;
   schedule_version: string;
   student_name: string;
+  student_year_group?: string | null;
   mentor_name: string | null;
   teacher_name?: string | null;
-  mentor_role: "peer_mentor" | "swag_member";
+  mentor_role: "peer_mentor" | "swag_member" | null;
+  mentor_year_group?: string | null;
+  identity_snapshot_version?: number;
   scheduled_start: string;
   scheduled_end: string;
   period_label: string;

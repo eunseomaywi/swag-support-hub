@@ -14,6 +14,7 @@ function asProfile(value: unknown): Profile | null {
     id: row["id"],
     email: typeof row["email"] === "string" ? row["email"] : null,
     full_name: typeof row["full_name"] === "string" ? row["full_name"] : null,
+    year_group: typeof row["year_group"] === "string" ? row["year_group"] : null,
     role: row["role"],
     created_at: typeof row["created_at"] === "string" ? row["created_at"] : "",
     updated_at: typeof row["updated_at"] === "string" ? row["updated_at"] : "",
@@ -29,31 +30,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestId = useRef(0);
   const signInInProgress = useRef(false);
   const activeUserId = useRef<string | null>(null);
+  const activeRole = useRef<AppRole | null>(null);
 
-  const loadProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    const currentRequest = ++requestId.current;
-    setProfileError(null);
+  const loadProfile = useCallback(
+    async (userId: string): Promise<Profile | null> => {
+      const currentRequest = ++requestId.current;
+      setProfileError(null);
 
-    const { data, error } = await getSupabaseClient()
-      .from("profiles")
-      .select("id, email, full_name, role, created_at, updated_at")
-      .eq("id", userId)
-      .maybeSingle();
+      const { data, error } = await getSupabaseClient()
+        .from("profiles")
+        .select("id, email, full_name, year_group, role, created_at, updated_at")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (currentRequest !== requestId.current) return null;
+      if (currentRequest !== requestId.current) return null;
 
-    const nextProfile = asProfile(data);
-    if (error || !nextProfile) {
-      setProfile(null);
-      setProfileError(
-        "Your approved account profile could not be loaded. Please contact the SWAG team.",
-      );
-      return null;
-    }
+      const nextProfile = asProfile(data);
+      if (error || !nextProfile) {
+        setProfile(null);
+        setProfileError(
+          "Your approved account profile could not be loaded. Please contact the SWAG team.",
+        );
+        return null;
+      }
 
-    setProfile(nextProfile);
-    return nextProfile;
-  }, []);
+      if (activeRole.current !== nextProfile.role) queryClient.clear();
+      activeRole.current = nextProfile.role;
+      setProfile(nextProfile);
+      return nextProfile;
+    },
+    [queryClient],
+  );
 
   const applySession = useCallback(
     async (nextSession: Session | null) => {
@@ -61,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (activeUserId.current !== nextUserId) {
         queryClient.clear();
         activeUserId.current = nextUserId;
+        activeRole.current = null;
+        setProfile(null);
       }
       setSession(nextSession);
 
@@ -163,10 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (!session?.user.id) return null;
-    setLoading(true);
-    const nextProfile = await loadProfile(session.user.id);
-    setLoading(false);
-    return nextProfile;
+    return loadProfile(session.user.id);
   }, [loadProfile, session?.user.id]);
 
   const value = useMemo<AuthContextValue>(

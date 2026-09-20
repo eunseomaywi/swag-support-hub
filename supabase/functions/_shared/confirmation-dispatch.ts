@@ -6,14 +6,13 @@ type Rpc = <T>(name: string, body: Record<string, unknown>) => Promise<T>;
 export async function dispatchConfirmationBatch(deps: {
   secret: string;
   rpc: Rpc;
-  teacherName: (sessionId: string) => Promise<string | null>;
   send: (
     message: ReturnType<typeof renderConfirmationEmail>,
   ) => Promise<{ accepted: boolean; messageId: string }>;
   failure: (error: unknown) => { outcome: string; errorCode: string };
 }) {
   const workerId = crypto.randomUUID();
-  const jobs = await deps.rpc<ConfirmationJob[]>("claim_confirmation_email_jobs", {
+  const jobs = await deps.rpc<ConfirmationJob[]>("claim_confirmation_email_jobs_v2", {
     p_dispatch_secret: deps.secret,
     p_worker_id: workerId,
     p_limit: 10,
@@ -24,9 +23,9 @@ export async function dispatchConfirmationBatch(deps: {
     let providerMessageId: string | null = null;
     let errorCode: string | null = "provider_network_error";
     try {
-      const teacher_name =
-        job.recipient_kind === "student" ? null : await deps.teacherName(job.session_id);
-      const result = await deps.send(renderConfirmationEmail({ ...job, teacher_name }));
+      // All display identity comes from the immutable confirmation snapshot.
+      // Legacy events keep missing fields missing; never substitute current profiles on retry.
+      const result = await deps.send(renderConfirmationEmail(job));
       if (result.accepted && result.messageId.length <= 200) {
         outcome = "submitted";
         providerMessageId = result.messageId;
