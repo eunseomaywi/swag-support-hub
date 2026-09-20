@@ -1,8 +1,10 @@
-import { AlertTriangle, CalendarCheck, CheckCircle2, Inbox, MailWarning } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Inbox } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardPageHeading, PageState } from "./DashboardLayout";
 import { SummaryCard } from "./DashboardPieces";
 import { getSupabaseClient } from "@/lib/supabase";
+import { savedReadiness } from "@/lib/peer-readiness";
+import { Link } from "@tanstack/react-router";
 
 type OverviewRow = {
   request_id: string;
@@ -274,9 +276,10 @@ export function TeacherPeerSupport() {
       <DashboardPageHeading
         eyebrow="Operational view"
         title="Peer Support Overview"
-        description="Appointment status, recipient-level confirmation delivery, and the small set of school-wide settings. Private explanations are not shown in this table."
+        description="Check waiting requests, today’s meetings, and anything needing attention."
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <SchoolSettings />
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           icon={Inbox}
           label="Unassigned"
@@ -284,13 +287,7 @@ export function TeacherPeerSupport() {
           note="Open requests"
           accent="orange"
         />
-        <SummaryCard
-          icon={CalendarCheck}
-          label="Confirmed"
-          value={counts ? String(counts.scheduled_count) : loading ? "…" : "—"}
-          note="Accepted appointments"
-          accent="blue"
-        />
+
         <SummaryCard
           icon={CheckCircle2}
           label="Today"
@@ -305,16 +302,13 @@ export function TeacherPeerSupport() {
           note="Needs oversight"
           accent="pink"
         />
-        <SummaryCard
-          icon={MailWarning}
-          label="Email attention"
-          value={counts ? String(counts.email_attention_count) : loading ? "…" : "—"}
-          note="Failed or uncertain"
-          accent="orange"
-        />
       </div>
-      <SchoolSettings />
-      <section className="mt-8">
+      <p className="mt-3 text-sm text-muted-foreground">
+        Confirmed meetings: {counts?.scheduled_count ?? "…"} · Email needs attention:{" "}
+        {counts?.email_attention_count ?? "…"}
+      </p>
+      <section id="requests" className="mt-8">
+        <h2 className="mb-3 text-xl font-bold text-swag-navy">Requests & meetings</h2>
         <div className="mb-4 flex flex-wrap gap-2" aria-label="Peer Support filters">
           {(
             [
@@ -558,27 +552,32 @@ export function TeacherPeerSupport() {
   );
 }
 
+function settingsForm(row: SettingsRow) {
+  const byPeriod = Object.fromEntries(row.periods.map((p) => [p.period, p]));
+  const time = (value: string | null | undefined) => value?.slice(0, 5) || "";
+  return {
+    location: row.location_guidance || "",
+    teacher: row.supervisor_teacher_id || "",
+    weekdays: [...row.active_weekdays].sort(),
+    breakStart: time(byPeriod["break"]?.start_time),
+    breakEnd: time(byPeriod["break"]?.end_time),
+    lunch1Start: time(byPeriod["lunch_1"]?.start_time),
+    lunch1End: time(byPeriod["lunch_1"]?.end_time),
+    lunch2Start: time(byPeriod["lunch_2"]?.start_time),
+    lunch2End: time(byPeriod["lunch_2"]?.end_time),
+  };
+}
+
 function SchoolSettings() {
   const [settings, setSettings] = useState<SettingsRow | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [email, setEmail] = useState<{
-    configured: boolean;
-    deliveryTracking: boolean;
-    mode: string;
-  } | null>(null);
-  const [form, setForm] = useState({
-    location: "",
-    teacher: "",
-    weekdays: [] as number[],
-    breakStart: "",
-    breakEnd: "",
-    lunch1Start: "",
-    lunch1End: "",
-    lunch2Start: "",
-    lunch2End: "",
-  });
-  const [message, setMessage] = useState<string | null>(null);
+  const [form, setForm] = useState<ReturnType<typeof settingsForm> | null>(null);
   const [attentionHours, setAttentionHours] = useState(24);
+  const [savedAttentionHours, setSavedAttentionHours] = useState<number | null>(null);
+  const [email, setEmail] = useState<{ configured: boolean } | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
     const client = getSupabaseClient();
     const [settingResult, candidateResult, policyResult, emailResult] = await Promise.all([
@@ -586,210 +585,341 @@ function SchoolSettings() {
       client.rpc("list_teacher_candidates"),
       client.rpc("get_peer_assignment_policy" as never),
       fetch("/api/peer-support/status", { cache: "no-store" })
-        .then((response) => response.json())
+        .then((r) => r.json())
         .catch(() => null),
     ]);
     const row = settingResult.data?.[0] as SettingsRow | undefined;
-    if (row) {
-      setSettings(row);
-      setCandidates((candidateResult.data ?? []) as Candidate[]);
-      const policy = (
-        policyResult.data as Array<{ assignment_attention_hours: number }> | null
-      )?.[0];
-      if (policy) setAttentionHours(policy.assignment_attention_hours);
-      setEmail(emailResult?.email ?? null);
-      const byPeriod = Object.fromEntries(
-        (row.periods ?? []).map((period) => [period.period, period]),
+    if (settingResult.error || candidateResult.error || !row) {
+      setError(
+        "Saved settings could not be verified. Your edits have been kept. Reload to check readiness.",
       );
-      const time = (value: string | null | undefined) => value?.slice(0, 5) || "";
-      setForm({
-        location: row.location_guidance || "",
-        teacher: row.supervisor_teacher_id || "",
-        weekdays: row.active_weekdays || [],
-        breakStart: time(byPeriod["break"]?.start_time),
-        breakEnd: time(byPeriod["break"]?.end_time),
-        lunch1Start: time(byPeriod["lunch_1"]?.start_time),
-        lunch1End: time(byPeriod["lunch_1"]?.end_time),
-        lunch2Start: time(byPeriod["lunch_2"]?.start_time),
-        lunch2End: time(byPeriod["lunch_2"]?.end_time),
-      });
+      return false;
     }
+    setSettings(row);
+    setCandidates((candidateResult.data ?? []) as Candidate[]);
+    setForm(settingsForm(row));
+    setEmail(emailResult?.email ?? null);
+    const policy = (policyResult.data as Array<{ assignment_attention_hours: number }> | null)?.[0];
+    if (policy) {
+      setAttentionHours(policy.assignment_attention_hours);
+      setSavedAttentionHours(policy.assignment_attention_hours);
+    }
+    setError(
+      policyResult.error
+        ? "The attention threshold could not be loaded. School settings are shown below."
+        : null,
+    );
+    return true;
   }, []);
   useEffect(() => {
     void load();
   }, [load]);
+  const readiness = settings ? savedReadiness(settings, candidates) : null;
+  const dirty = Boolean(
+    form && settings && JSON.stringify(form) !== JSON.stringify(settingsForm(settings)),
+  );
+  const policyDirty = savedAttentionHours !== null && attentionHours !== savedAttentionHours;
+  useEffect(() => {
+    if (!dirty && !policyDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, policyDirty]);
   async function save() {
+    if (!form) return;
+    setBusy(true);
     setMessage(null);
-    const { data, error } = await getSupabaseClient().rpc("save_peer_support_settings", {
-      p_location_guidance: form.location,
-      p_supervisor_teacher_id: form.teacher,
-      p_active_weekdays: form.weekdays,
-      p_break_start: form.breakStart,
-      p_break_end: form.breakEnd,
-      p_lunch_1_start: form.lunch1Start,
-      p_lunch_1_end: form.lunch1End,
-      p_lunch_2_start: form.lunch2Start,
-      p_lunch_2_end: form.lunch2End,
-    });
-    setMessage(
-      error || !data
-        ? "Enter a valid location, Teacher, active days, and start/end time for all three periods."
-        : "School appointment settings saved.",
-    );
-    await load();
+    setError(null);
+    try {
+      const { data, error: rpcError } = await getSupabaseClient().rpc(
+        "save_peer_support_settings",
+        {
+          p_location_guidance: form.location,
+          p_supervisor_teacher_id: form.teacher,
+          p_active_weekdays: form.weekdays,
+          p_break_start: form.breakStart,
+          p_break_end: form.breakEnd,
+          p_lunch_1_start: form.lunch1Start,
+          p_lunch_1_end: form.lunch1End,
+          p_lunch_2_start: form.lunch2Start,
+          p_lunch_2_end: form.lunch2End,
+        },
+      );
+      if (rpcError || !data) {
+        setError(
+          "Settings were not saved. Choose an active teacher, a location, school days, and valid start/end times for all three periods. Your edits have been kept.",
+        );
+      } else {
+        // Do not reset an independently edited attention threshold.
+        const result = await getSupabaseClient().rpc("get_peer_support_settings");
+        const candidatesResult = await getSupabaseClient().rpc("list_teacher_candidates");
+        const row = result.data?.[0] as SettingsRow | undefined;
+        if (result.error || candidatesResult.error || !row) {
+          setError(
+            "Save succeeded, but readiness could not be reloaded. Reload to verify the saved setup.",
+          );
+        } else {
+          setSettings(row);
+          setForm(settingsForm(row));
+          setCandidates((candidatesResult.data ?? []) as Candidate[]);
+          setMessage("School settings saved. Readiness below reflects the saved setup.");
+        }
+      }
+    } catch {
+      setError("Could not reach the server. Your edits have been kept; try saving again.");
+    } finally {
+      setBusy(false);
+    }
   }
   async function saveAttentionPolicy() {
+    setBusy(true);
     setMessage(null);
-    const { data, error } = await getSupabaseClient().rpc(
-      "set_peer_assignment_policy" as never,
-      { p_assignment_attention_hours: attentionHours } as never,
-    );
-    setMessage(
-      error || !data
-        ? "Use an attention threshold from 1 to 168 hours."
-        : "Assignment attention threshold saved.",
-    );
-    await load();
+    setError(null);
+    try {
+      const { data, error: rpcError } = await getSupabaseClient().rpc(
+        "set_peer_assignment_policy" as never,
+        { p_assignment_attention_hours: attentionHours } as never,
+      );
+      if (rpcError || !data)
+        setError("Threshold was not saved. Use a whole number from 1 to 168 hours.");
+      else {
+        setSavedAttentionHours(attentionHours);
+        setMessage("Attention threshold saved. Other edits are unchanged.");
+      }
+    } catch {
+      setError("Could not save the attention threshold. Try again.");
+    } finally {
+      setBusy(false);
+    }
   }
+  const inputClass =
+    "mt-2 min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 font-normal";
   return (
-    <section className="paper-card mt-8 border-swag-blue/35 p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section
+      id="school-settings"
+      className="paper-card mt-6 scroll-mt-6 border-swag-blue/35 p-5 sm:p-7"
+      aria-label="Peer Support setup status"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-swag-navy">School appointment settings</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Times are interpreted only in Asia/Seoul and snapshotted when a mentor confirms.
-          </p>
+          <h2 className="text-xl font-bold text-swag-navy">Peer Support setup status</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Saved school setup · Asia/Seoul</p>
         </div>
-        <div className="text-xs">
-          <p className={settings?.schedule_ready ? "text-swag-green" : "text-swag-orange"}>
-            Schedule: {settings?.schedule_ready ? "ready" : "not configured"}
-          </p>
-          <p className={email?.configured ? "text-swag-green" : "text-swag-orange"}>
-            Email: {email?.configured ? "live" : `not configured (${email?.mode || "disabled"})`}
-          </p>
-          <p className={email?.deliveryTracking ? "text-swag-green" : "text-muted-foreground"}>
-            Delivery events:{" "}
-            {email?.deliveryTracking ? "verified webhook ready" : "submitted status only"}
-          </p>
-        </div>
-      </div>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <label className="text-sm font-semibold text-swag-navy">
-          Approved location or guidance
-          <input
-            value={form.location}
-            maxLength={160}
-            onChange={(event) => setForm((old) => ({ ...old, location: event.target.value }))}
-            className="mt-2 min-h-11 w-full rounded-lg border border-border bg-background px-3 font-normal"
-          />
-        </label>
-        <label className="text-sm font-semibold text-swag-navy">
-          Designated supervisor Teacher
-          <select
-            value={form.teacher}
-            onChange={(event) => setForm((old) => ({ ...old, teacher: event.target.value }))}
-            className="mt-2 min-h-11 w-full rounded-lg border border-border bg-background px-3 font-normal"
-          >
-            <option value="">Select an approved Teacher</option>
-            {candidates.map((candidate) => (
-              <option key={candidate.profile_id} value={candidate.profile_id}>
-                {candidate.full_name || "Teacher profile"}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="mt-4 max-w-sm rounded-xl border border-border p-3">
-        <label className="text-sm font-semibold text-swag-navy">
-          Assignment attention threshold (hours)
-          <input
-            type="number"
-            min={1}
-            max={168}
-            value={attentionHours}
-            onChange={(event) => setAttentionHours(Number(event.target.value))}
-            className="mt-2 min-h-10 w-full rounded-lg border border-border bg-background px-3 font-normal"
-          />
-        </label>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          This only highlights waiting requests. It does not block self-claiming or assign anyone
-          automatically.
-        </p>
-        <button
-          type="button"
-          onClick={() => void saveAttentionPolicy()}
-          className="mt-3 min-h-10 rounded-lg border border-border px-4 text-xs font-semibold text-swag-navy"
+        <span
+          role="status"
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${readiness?.ready ? "bg-swag-green/10 text-swag-green" : "bg-swag-orange/10 text-swag-orange"}`}
         >
-          Save attention threshold
-        </button>
+          {readiness
+            ? readiness.ready
+              ? "Ready to run"
+              : "Setup needs attention"
+            : "Checking saved setup…"}
+        </span>
       </div>
-      <fieldset className="mt-4">
-        <legend className="text-sm font-semibold text-swag-navy">Active school days</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => {
-            const day = index + 1;
-            return (
-              <label
-                key={label}
-                className="flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.weekdays.includes(day)}
-                  onChange={(event) =>
-                    setForm((old) => ({
-                      ...old,
-                      weekdays: event.target.checked
-                        ? [...old.weekdays, day].sort()
-                        : old.weekdays.filter((value) => value !== day),
-                    }))
-                  }
-                />
-                {label}
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {periodFields.map(([label, start, end]) => (
-          <fieldset key={label} className="rounded-xl border border-border p-3">
-            <legend className="px-1 text-sm font-semibold text-swag-navy">{label}</legend>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-muted-foreground">
-                Start
-                <input
-                  type="time"
-                  value={form[start]}
-                  onChange={(event) => setForm((old) => ({ ...old, [start]: event.target.value }))}
-                  className="mt-1 min-h-10 w-full rounded-lg border border-border bg-background px-2 text-swag-navy"
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                End
-                <input
-                  type="time"
-                  value={form[end]}
-                  onChange={(event) => setForm((old) => ({ ...old, [end]: event.target.value }))}
-                  className="mt-1 min-h-10 w-full rounded-lg border border-border bg-background px-2 text-swag-navy"
-                />
-              </label>
+      {readiness && (
+        <>
+          <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {readiness.checks.map((check) => (
+              <li key={check.label} className="rounded-lg bg-muted/40 px-3 py-2">
+                <span aria-hidden="true">{check.ready ? "✓" : "!"}</span> {check.label}:{" "}
+                <strong>{check.ready ? "Ready" : "Missing"}</strong>
+              </li>
+            ))}
+          </ul>
+          {!readiness.ready && (
+            <div
+              className="mt-4 rounded-xl border border-swag-orange/40 bg-swag-orange/5 p-4 text-sm"
+              role="status"
+            >
+              <p className="font-bold text-swag-navy">What needs attention</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {readiness.missing.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
             </div>
-          </fieldset>
-        ))}
-      </div>
+          )}
+        </>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">
+        Confirmation email:{" "}
+        {email ? (email.configured ? "ready" : "not configured") : "status unavailable"}. Sent only
+        when a meeting is confirmed.
+      </p>
+      {error && (
+        <p role="alert" className="mt-4 rounded-lg border border-swag-orange/40 p-3 text-sm">
+          {error}
+        </p>
+      )}
       {message && (
-        <p role="status" className="mt-4 text-sm text-swag-navy">
+        <p role="status" className="mt-4 text-sm font-semibold text-swag-green">
           {message}
         </p>
       )}
-      <button
-        type="button"
-        onClick={() => void save()}
-        className="mt-4 min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
-      >
-        Save settings
-      </button>
+      {!form ? (
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="mt-4 text-sm font-semibold text-swag-blue"
+        >
+          Reload settings
+        </button>
+      ) : (
+        <details className="mt-5" open={!readiness?.ready || undefined}>
+          <summary className="cursor-pointer text-sm font-semibold text-swag-blue">
+            Edit school settings{dirty || policyDirty ? " · Unsaved changes" : ""}
+          </summary>
+          <fieldset disabled={busy} className="mt-5 min-w-0 disabled:opacity-60">
+            <legend className="text-base font-bold text-swag-navy">General settings</legend>
+            <label className="mt-3 block text-sm font-semibold text-swag-navy">
+              Approved location or guidance
+              <input
+                value={form.location}
+                maxLength={160}
+                onChange={(e) => setForm((old) => old && { ...old, location: e.target.value })}
+                className={inputClass}
+              />
+            </label>
+            <h3 className="mt-5 font-bold text-swag-navy">Supervisor</h3>
+            <label className="mt-2 block text-sm font-semibold text-swag-navy">
+              Designated supervising teacher
+              <select
+                value={form.teacher}
+                onChange={(e) => setForm((old) => old && { ...old, teacher: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Select an approved Teacher</option>
+                {form.teacher && !candidates.some((c) => c.profile_id === form.teacher) && (
+                  <option value={form.teacher} disabled>
+                    {settings?.supervisor_teacher_name || "Saved teacher"} — inactive / unavailable
+                  </option>
+                )}
+                {candidates.map((c) => (
+                  <option key={c.profile_id} value={c.profile_id}>
+                    {c.full_name || "Approved teacher"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Only teachers with active staff registration can supervise. Missing teacher? Ask the
+              administrator to check their registration.
+            </p>
+            <fieldset className="mt-5">
+              <legend className="font-bold text-swag-navy">School days</legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => (
+                  <label
+                    key={label}
+                    className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.weekdays.includes(index + 1)}
+                      onChange={(e) =>
+                        setForm(
+                          (old) =>
+                            old && {
+                              ...old,
+                              weekdays: e.target.checked
+                                ? [...old.weekdays, index + 1].sort()
+                                : old.weekdays.filter((d) => d !== index + 1),
+                            },
+                        )
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <h3 className="mt-5 font-bold text-swag-navy">
+              Period times{" "}
+              <span className="text-sm font-normal text-muted-foreground">(Asia/Seoul)</span>
+            </h3>
+            <div className="mt-3 grid gap-3 xl:grid-cols-3">
+              {periodFields.map(([label, start, end]) => (
+                <fieldset key={label} className="min-w-0 rounded-xl border border-border p-3">
+                  <legend className="px-1 text-sm font-semibold text-swag-navy">{label}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="min-w-0 text-xs text-muted-foreground">
+                      Start
+                      <input
+                        type="time"
+                        value={form[start]}
+                        onChange={(e) =>
+                          setForm((old) => old && { ...old, [start]: e.target.value })
+                        }
+                        className={inputClass}
+                      />
+                    </label>
+                    <label className="min-w-0 text-xs text-muted-foreground">
+                      End
+                      <input
+                        type="time"
+                        value={form[end]}
+                        onChange={(e) => setForm((old) => old && { ...old, [end]: e.target.value })}
+                        className={inputClass}
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void save()}
+                className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
+              >
+                {busy ? "Saving…" : "Save school settings"}
+              </button>
+              <p role="status" className="text-sm text-muted-foreground">
+                {dirty
+                  ? "Unsaved school settings — save to apply."
+                  : "School settings match the saved setup."}
+              </p>
+            </div>
+          </fieldset>
+          <fieldset
+            disabled={busy || savedAttentionHours === null}
+            className="mt-6 min-w-0 border-t border-border pt-5"
+          >
+            <legend className="text-base font-bold text-swag-navy">Attention threshold</legend>
+            <p className="text-xs text-muted-foreground">
+              Highlight requests waiting this long. This does not assign or block meetings.
+            </p>
+            <label className="mt-3 block max-w-xs text-sm font-semibold text-swag-navy">
+              Hours
+              <input
+                type="number"
+                min={1}
+                max={168}
+                step={1}
+                value={attentionHours}
+                onChange={(e) => setAttentionHours(Number(e.target.value))}
+                className={inputClass}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!policyDirty || busy}
+              onClick={() => void saveAttentionPolicy()}
+              className="mt-3 min-h-11 rounded-lg border border-border px-4 text-sm font-semibold disabled:opacity-50"
+            >
+              Save attention threshold
+            </button>
+            {policyDirty && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Unsaved attention threshold (saved separately).
+              </p>
+            )}
+          </fieldset>
+        </details>
+      )}
     </section>
   );
 }
@@ -811,9 +941,9 @@ export function TeacherPeerHome() {
       <DashboardPageHeading
         eyebrow="Teacher workspace"
         title="Peer Support at a glance"
-        description="Live operational counts. Open the overview for schedules, recipient-level email state, and school settings."
+        description="Start with requests needing support and today’s meetings."
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           icon={Inbox}
           label="Unassigned"
@@ -821,13 +951,7 @@ export function TeacherPeerHome() {
           note="Open requests"
           accent="orange"
         />
-        <SummaryCard
-          icon={CalendarCheck}
-          label="Confirmed"
-          value={value("scheduled_count")}
-          note="Active appointments"
-          accent="blue"
-        />
+
         <SummaryCard
           icon={CheckCircle2}
           label="Today"
@@ -842,14 +966,25 @@ export function TeacherPeerHome() {
           note="Needs oversight"
           accent="pink"
         />
-        <SummaryCard
-          icon={MailWarning}
-          label="Email attention"
-          value={value("email_attention_count")}
-          note="Failed or uncertain"
-          accent="orange"
-        />
       </div>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <Link to="/teacher/peer-support" className="paper-card border-swag-blue/35 p-5">
+          <h2 className="font-bold text-swag-navy">Manage Peer Support →</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Assign requests, check meetings, and review school setup.
+          </p>
+        </Link>
+        <Link to="/teacher/escalations" className="paper-card border-swag-pink/35 p-5">
+          <h2 className="font-bold text-swag-navy">Review escalations →</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Follow up on cases that need Teacher support.
+          </p>
+        </Link>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">
+        Confirmed meetings: {value("scheduled_count")} · Email needs attention:{" "}
+        {value("email_attention_count")}
+      </p>
     </>
   );
 }

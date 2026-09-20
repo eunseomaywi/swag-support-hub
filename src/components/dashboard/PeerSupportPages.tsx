@@ -14,6 +14,7 @@ import { DashboardPageHeading, PageState } from "@/components/dashboard/Dashboar
 import { SummaryCard } from "@/components/dashboard/DashboardPieces";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { Database } from "@/types/database";
+import { confirmationBlocker, confirmationChecklist } from "@/lib/peer-readiness";
 
 type PeerRole = "peer_mentor" | "swag_member";
 type QueueRow = {
@@ -130,12 +131,12 @@ export function PeerHome({ role }: { role: PeerRole }) {
           className="absolute -right-6 -top-8 h-32 w-32 rounded-full border-[18px] border-swag-green/8"
         />
       </div>
-      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           icon={Inbox}
           label="Available requests"
           value={value("available_count")}
-          note="Privacy-limited open requests"
+          note="Waiting for a supporter"
           accent="orange"
         />
         <SummaryCard
@@ -152,14 +153,14 @@ export function PeerHome({ role }: { role: PeerRole }) {
           note="Confirmed session times"
           accent="pink"
         />
-        <SummaryCard
-          icon={ShieldAlert}
-          label="Email attention"
-          value={value("email_attention_count" as keyof CountRow)}
-          note="Failed or uncertain confirmation emails"
-          accent="green"
-        />
       </div>
+      {Number(counts?.email_attention_count) > 0 && (
+        <p className="mt-4 text-sm text-swag-orange">
+          <Link to={`${base}/cases` as never} className="underline">
+            {counts?.email_attention_count} confirmation emails need attention — open My Cases.
+          </Link>
+        </p>
+      )}
       <div className="mt-7 grid gap-4 sm:grid-cols-2">
         <Link
           to={`${base}/requests` as never}
@@ -167,7 +168,7 @@ export function PeerHome({ role }: { role: PeerRole }) {
         >
           <h2 className="text-lg font-bold text-swag-navy">Available Requests</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Review only the minimum queue information before choosing Accept or Pass.
+            Choose a request to support. Accepting assigns it to you; it does not confirm a meeting.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-swag-blue">
             Open requests →
@@ -179,7 +180,7 @@ export function PeerHome({ role }: { role: PeerRole }) {
         >
           <h2 className="text-lg font-bold text-swag-navy">My Cases</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Continue only the support requests currently entrusted to you.
+            Choose a meeting period and confirm your assigned cases.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-swag-blue">
             Open my cases →
@@ -403,6 +404,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmationOptions, setConfirmationOptions] = useState<PreviewRow[] | null>(null);
+  const [selectedPeriod, setSelectedPeriod] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error: rpcError } = await getSupabaseClient().rpc("list_my_peer_cases", {
@@ -411,6 +413,14 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
     });
     const found = data?.find((item) => item.request_id === requestId) ?? null;
     setRow(found);
+    setConfirmationOptions(null);
+    if (found?.status === "accepted" && !found.session_id) {
+      const preview = await getSupabaseClient().rpc("preview_peer_request_confirmation", {
+        p_request_id: requestId,
+      });
+      if (!preview.error && preview.data?.length)
+        setConfirmationOptions(preview.data as PreviewRow[]);
+    }
     setError(
       rpcError
         ? "This case could not be loaded."
@@ -421,19 +431,6 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
     setLoading(false);
   }, [requestId]);
   useFocusRefresh(load);
-  async function loadConfirmationOptions() {
-    setBusy(true);
-    setError(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc(
-      "preview_peer_request_confirmation",
-      { p_request_id: requestId },
-    );
-    if (rpcError || !data?.length) {
-      setConfirmationOptions(null);
-      setError("Meeting options could not be loaded.");
-    } else setConfirmationOptions(data as PreviewRow[]);
-    setBusy(false);
-  }
   async function confirmMeeting(period: string) {
     setBusy(true);
     setError(null);
@@ -527,6 +524,24 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
       </>
     );
   const privateVisible = row.status !== "escalated";
+  const awaitingConfirmation = row.status === "accepted" && !row.session_id;
+  const selected = confirmationOptions?.find((option) => option.period === selectedPeriod);
+  const checkOption = selected || confirmationOptions?.[0];
+  const allBlocked = Boolean(
+    confirmationOptions?.length && confirmationOptions.every((option) => !option.ready),
+  );
+  const blocked =
+    awaitingConfirmation &&
+    (!confirmationOptions || allBlocked || Boolean(selected && !selected.ready));
+  const readinessLabel = !awaitingConfirmation
+    ? row.status === "scheduled"
+      ? "Meeting confirmed"
+      : "No confirmation needed"
+    : blocked
+      ? "Confirmation blocked"
+      : selected?.ready
+        ? "Ready to confirm"
+        : "School ready · choose a period";
   return (
     <>
       <Link to={`${baseFor(role)}/cases` as never} className="text-sm font-semibold text-swag-blue">
@@ -549,6 +564,38 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
         <p role="alert" className="mb-4 rounded-lg border border-swag-orange/35 p-3 text-sm">
           {error}
         </p>
+      )}
+      {privateVisible && (
+        <section aria-label="Case summary" className="paper-card mb-5 border-swag-blue/35 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-bold text-swag-navy">Case at a glance</h2>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${blocked ? "bg-swag-orange/10 text-swag-orange" : "bg-swag-green/10 text-swag-green"}`}
+            >
+              {readinessLabel}
+            </span>
+          </div>
+          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["Student", row.student_name || "Assigned student"],
+              ["Year group", row.year_group || "Not provided"],
+              [
+                "Status",
+                row.status === "accepted"
+                  ? "Assigned · not yet confirmed"
+                  : row.status.replaceAll("_", " "),
+              ],
+              ["Requested date", row.preferred_date],
+              ["Allowed periods", row.preferred_time],
+              ["Assignment", "Assigned to you"],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="mt-1 break-words font-semibold text-swag-navy">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
       {privateVisible && (
         <div className="grid gap-5 lg:grid-cols-[1fr_0.7fr]">
@@ -614,55 +661,109 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
             )}
           </section>
           <aside className="paper-card border-swag-green/35 p-5">
-            <h2 className="text-lg font-bold text-swag-navy">Next actions</h2>
+            <h2 className="text-lg font-bold text-swag-navy">What you need to do</h2>
             <div className="mt-4 grid gap-3">
-              {row.status === "accepted" && !row.session_id && (
+              {awaitingConfirmation && (
                 <>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    This case is assigned to you, but no meeting is confirmed yet. Choose one of the
-                    student's available periods.
-                  </p>
-                  {!confirmationOptions ? (
+                  <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+                    <li>Review the student's details.</li>
+                    <li>Choose one allowed period below.</li>
+                    <li>Check school readiness.</li>
+                    <li>Confirm to schedule the meeting.</li>
+                  </ol>
+                  {blocked && (
+                    <div
+                      id="confirmation-blocker"
+                      role="status"
+                      className="rounded-xl border border-swag-orange/40 bg-swag-orange/5 p-4 text-sm"
+                    >
+                      <p className="font-bold text-swag-navy">Meeting confirmation is blocked</p>
+                      <p className="mt-2 leading-relaxed">
+                        {confirmationBlocker(checkOption?.readiness_issue)}
+                      </p>
+                    </div>
+                  )}
+                  <fieldset disabled={busy} className="min-w-0">
+                    <legend className="mb-2 text-sm font-semibold text-swag-navy">
+                      Choose an allowed period
+                    </legend>
+                    <div className="grid gap-2">
+                      {confirmationOptions?.map((option) => (
+                        <label
+                          key={option.period}
+                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${selectedPeriod === option.period ? "border-swag-blue bg-swag-blue/5" : "border-border"}`}
+                        >
+                          <input
+                            type="radio"
+                            name="meeting-period"
+                            value={option.period}
+                            checked={selectedPeriod === option.period}
+                            onChange={() => setSelectedPeriod(option.period)}
+                            className="mt-1"
+                          />
+                          <span className="min-w-0 text-sm">
+                            <strong className="text-swag-navy">{option.period_label}</strong>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {option.scheduled_start && option.scheduled_end
+                                ? `${format(option.scheduled_start)}–${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", timeStyle: "short" }).format(new Date(option.scheduled_end))}`
+                                : "Times not saved"}
+                            </span>
+                            {!option.ready && (
+                              <span className="mt-1 block text-xs text-swag-orange">
+                                Needs attention
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <div className="rounded-xl bg-muted/40 p-3">
+                    <h3 className="text-sm font-semibold text-swag-navy">School readiness</h3>
+                    <ul className="mt-2 space-y-2 text-xs">
+                      {confirmationChecklist(checkOption, selectedPeriod).map((check) => (
+                        <li key={check.label} className="flex justify-between gap-2">
+                          <span>{check.label}</span>
+                          <strong>
+                            {check.ready === null
+                              ? "Not yet verified"
+                              : check.ready
+                                ? "✓ Ready"
+                                : "Needs attention"}
+                          </strong>
+                        </li>
+                      ))}
+                    </ul>
+                    {checkOption?.location_guidance && (
+                      <p className="mt-3 break-words text-xs text-muted-foreground">
+                        Location: {checkOption.location_guidance}
+                      </p>
+                    )}
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void loadConfirmationOptions()}
-                      className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                      onClick={() => void load()}
+                      className="mt-2 min-h-10 text-xs font-semibold text-swag-blue underline"
                     >
-                      Choose meeting time
+                      Refresh school check
                     </button>
-                  ) : (
-                    <div className="grid gap-2">
-                      {confirmationOptions.map((option) => (
-                        <div key={option.period} className="rounded-xl border border-border p-3">
-                          <p className="text-sm font-bold text-swag-navy">
-                            {option.preferred_date} · {option.period_label}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {option.scheduled_start && option.scheduled_end
-                              ? `${format(option.scheduled_start)}–${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", timeStyle: "short" }).format(new Date(option.scheduled_end))} · ${option.location_guidance}`
-                              : "School schedule or location is not configured."}
-                          </p>
-                          {!option.ready && (
-                            <p className="mt-1 text-xs font-semibold text-swag-orange">
-                              Not ready: {option.readiness_issue?.replaceAll("_", " ")}
-                            </p>
-                          )}
-                          <button
-                            type="button"
-                            disabled={busy || !option.ready}
-                            onClick={() => void confirmMeeting(option.period)}
-                            className="mt-2 min-h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-                          >
-                            Confirm Meeting
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Confirmation creates three separate email jobs: student, assigned supporter, and
-                    supervising Teacher. Accepting the case did not send email.
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busy || !selected?.ready}
+                    aria-describedby={blocked ? "confirmation-blocker" : "confirmation-help"}
+                    onClick={() => selected?.ready && void confirmMeeting(selected.period)}
+                    className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    {busy ? "Confirming…" : "Confirm Meeting"}
+                  </button>
+                  <p
+                    id="confirmation-help"
+                    className="text-xs leading-relaxed text-muted-foreground"
+                  >
+                    {!selectedPeriod && "Choose a period first. "}Confirmation schedules this
+                    meeting and sends separate emails to the student, you, and the supervising
+                    teacher.
                   </p>
                 </>
               )}
@@ -696,7 +797,10 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
                 </>
               )}
               {["accepted", "scheduled"].includes(row.status) && (
-                <>
+                <details className="mt-3 border-t border-border pt-4">
+                  <summary className="cursor-pointer text-sm font-semibold text-swag-navy">
+                    Need help? Escalate to a Teacher
+                  </summary>
                   <label className="text-sm font-semibold text-swag-navy">
                     Escalation reason
                     <textarea
@@ -714,7 +818,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
                     <ShieldAlert className="h-4 w-4" />
                     Escalate to Teacher
                   </button>
-                </>
+                </details>
               )}
             </div>
           </aside>
