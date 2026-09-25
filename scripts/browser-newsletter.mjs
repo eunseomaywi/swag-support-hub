@@ -7,6 +7,7 @@ import { renderAssignmentEmail } from "../supabase/functions/_shared/assignment-
 
 const origin = process.env.SWAG_BROWSER_ORIGIN || "http://127.0.0.1:8080";
 const development = origin.startsWith("http://127.0.0.1:8080");
+const expectNewsletter = process.env.SWAG_EXPECT_NEWSLETTER !== "false";
 const port = 9600 + Math.floor(Math.random() * 200);
 const chrome = spawn(
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -96,8 +97,26 @@ try {
       "website by @eunseowi",
     ])
       assert.ok(content.includes(title));
-    if (development) {
+    if (expectNewsletter) {
       assert.equal(await evaluate("document.querySelectorAll('[data-activity-card]').length"), 6);
+      for (const article of newsletters) {
+        const image = await evaluate(
+          `(()=>{const img=document.querySelector('[data-activity-card="${article.id}"] img');return {complete:img?.complete,width:img?.naturalWidth,height:img?.naturalHeight,fit:img?getComputedStyle(img).objectFit:null};})()`,
+        );
+        assert.deepEqual(image, {
+          complete: true,
+          width: article.images[0].width,
+          height: article.images[0].height,
+          fit: "contain",
+        });
+        const response = await fetch(origin + article.images[0].src);
+        assert.equal(response.status, 200);
+        assert.match(response.headers.get("content-type"), /^image\/png/);
+        assert.deepEqual(
+          [...new Uint8Array(await response.arrayBuffer()).slice(0, 8)],
+          [137, 80, 78, 71, 13, 10, 26, 10],
+        );
+      }
       await evaluate("document.querySelector('[data-activity-card=peer-mentoring]').click()");
       await pause(400);
       assert.ok(await evaluate("location.search.includes('newsletter=peer-mentoring')"));
@@ -213,8 +232,8 @@ try {
     JSON.stringify({
       origin,
       widths: [375, 768, 1440],
-      newsletter: development
-        ? "text/navigation/focus/history tested; artwork missing"
+      newsletter: expectNewsletter
+        ? "text/navigation/focus/history and all three decoded PNGs tested"
         : "unpublished (missing artwork)",
       publicRoutes: "passed",
       protectedRoutes: "unauthenticated redirect only",

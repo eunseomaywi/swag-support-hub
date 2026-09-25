@@ -31,6 +31,8 @@ export const newsletters: readonly Newsletter[] = [
     images: [
       {
         src: "/images/activities/newsletter/peer-mentoring.png",
+        width: 580,
+        height: 592,
         alt: "Two people helping each other climb steps above an open book.",
       },
     ],
@@ -57,6 +59,8 @@ export const newsletters: readonly Newsletter[] = [
     images: [
       {
         src: "/images/activities/newsletter/student-voice.png",
+        width: 748,
+        height: 734,
         alt: "One person speaking through a megaphone while another person listens.",
       },
     ],
@@ -82,6 +86,8 @@ export const newsletters: readonly Newsletter[] = [
     images: [
       {
         src: "/images/activities/newsletter/wellbeing-tips.png",
+        width: 542,
+        height: 512,
         alt: "Two hands holding a glowing light bulb surrounded by small decorative marks.",
       },
     ],

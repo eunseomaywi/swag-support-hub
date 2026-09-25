@@ -70,10 +70,13 @@ only when all three actual PNG files pass the build-time signature/dimension che
 - `public/images/activities/newsletter/student-voice.png`
 - `public/images/activities/newsletter/wellbeing-tips.png`
 
-All three were absent at implementation. Development shows a safe missing-artwork fallback;
-production preserves existing Activities and does not publish that placeholder section. Add the
-user's exact artwork, verify decoded dimensions/content in a browser, rebuild and redeploy to
-publish the newsletters. No AI artwork, unrelated photos, PDF iframe or invented URLs are used.
+All three were supplied during implementation under `public/activities/newsletter/` and copied
+without modification to the required paths above. Dimensions: peer-mentoring 580×592,
+student-voice 748×734, wellbeing-tips 542×512. They use object-contain and explicit intrinsic
+dimensions. The source files remain untouched. The gate now enables production newsletter
+publication. Development retains a safe fallback for future missing artwork. No AI artwork,
+unrelated photos, PDF iframe or invented URLs are used. Tags are also rendered as HTML text,
+including those already present within the supplied student-voice artwork.
 
 ## Validation and rollback
 
@@ -94,7 +97,7 @@ assignment/self-claim races and concurrent dispatcher leasing; 11 assignment/dat
 unit/Edge tests; 10 existing confirmation tests; six built Worker route/scheduler tests; five
 readiness and two identity tests. TypeScript and production build passed. ESLint passed with
 six pre-existing Fast Refresh warnings. Public newsletter navigation was tested at 375, 768
-and 1440px with development-only missing-artwork fallbacks; authenticated local queues at
+and 1440px (subsequently repeated with the supplied PNGs); authenticated local queues at
 375 and 1440px. Provider tests are mocks, not real Resend acceptance or inbox delivery.
 
 Pre-release source: `1445770f7d1a018356aea35b3022c60e12c804b8`.

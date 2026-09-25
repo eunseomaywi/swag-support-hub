@@ -3,6 +3,8 @@ import type { Accent } from "@/lib/accents";
 export type ActivityImage = {
   src: string;
   alt: string;
+  width?: number;
+  height?: number;
   caption?: string;
 };
 

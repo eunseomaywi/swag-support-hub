@@ -45,8 +45,8 @@ function ActivityArtwork({
         <img
           src={image.src}
           alt={image.alt}
-          width={mode === "card" ? 720 : 1440}
-          height={mode === "card" ? 540 : 1080}
+          width={image.width ?? (mode === "card" ? 720 : 1440)}
+          height={image.height ?? (mode === "card" ? 540 : 1080)}
           loading={mode === "card" ? "lazy" : "eager"}
           className={cn(
             "h-full w-full bg-muted",
