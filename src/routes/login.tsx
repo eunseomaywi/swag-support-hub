@@ -5,8 +5,13 @@ import { SwagButton, SwagLinkButton } from "@/components/SwagButton";
 import { AccountAccessNotice } from "@/components/auth/ProtectedDashboard";
 import { dashboardRouteFor } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
+import { safeCaseReturn } from "@/lib/safe-return-to";
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>): { returnTo?: string } => {
+    const returnTo = safeCaseReturn(search["returnTo"]);
+    return returnTo ? { returnTo } : {};
+  },
   head: () => ({
     meta: [
       { title: "Staff & Peer Mentor Access — SWAG Support Hub" },
@@ -26,13 +31,19 @@ function LoginPage() {
   const [error, setError] = useState("");
   const { user, profile, loading, profileError, signIn, signOut } = useAuth();
   const navigate = useNavigate();
+  const { returnTo } = Route.useSearch();
 
   useEffect(() => {
     const destination = dashboardRouteFor(profile?.role ?? null);
     if (!loading && user && destination) {
+      const casePath = safeCaseReturn(returnTo, profile?.role);
+      if (casePath) {
+        window.location.replace(casePath);
+        return;
+      }
       void navigate({ to: destination, replace: true });
     }
-  }, [loading, navigate, profile?.role, user]);
+  }, [loading, navigate, profile?.role, user, returnTo]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,6 +61,11 @@ function LoginPage() {
 
     const destination = dashboardRouteFor(result.role);
     if (destination) {
+      const casePath = safeCaseReturn(returnTo, result.role);
+      if (casePath) {
+        window.location.replace(casePath);
+        return;
+      }
       await navigate({ to: destination, replace: true });
     }
   }

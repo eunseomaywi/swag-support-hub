@@ -1,0 +1,70 @@
+begin;
+select no_plan();
+insert into auth.users(id,email) values
+ ('a1000000-0000-4000-8000-000000000001','assignment-mentor@example.invalid'),
+ ('a1000000-0000-4000-8000-000000000002','assignment-swag@example.invalid'),
+ ('a1000000-0000-4000-8000-000000000003','assignment-teacher@example.invalid'),
+ ('a1000000-0000-4000-8000-000000000004','assignment-inactive@example.invalid');
+select public.admin_set_staff_registration('a1000000-0000-4000-8000-000000000001','peer_mentor',true);
+select public.admin_set_staff_registration('a1000000-0000-4000-8000-000000000002','swag_member',true);
+select public.admin_set_staff_registration('a1000000-0000-4000-8000-000000000003','teacher',true);
+select public.admin_set_staff_registration('a1000000-0000-4000-8000-000000000004','peer_mentor',false);
+insert into public.peer_support_requests(id,student_name,year_group,contact_email,category,preferred_date,preferred_time,preferred_periods,private_explanation)
+select ('a2000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,'PRIVATE STUDENT','Year 9','private-student@example.invalid','Friendships',current_date+8,'Break',array['break','lunch_1'],'PRIVATE CONCERN' from generate_series(1,6) i;
+select is((select count(*) from public.peer_assignment_email_outbox),0::bigint,'no historical backfill');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select throws_ok($$select public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000002')$$,'42501',null,'supporter cannot impersonate Teacher');
+select ok((select success from public.claim_peer_request('a2000000-0000-4000-8000-000000000001')),'self claim succeeds');
+select throws_ok($$select * from public.peer_assignment_email_outbox$$,'42501',null,'outbox private');
+select throws_ok($$select public.claim_assignment_email_job(gen_random_uuid())$$,'42501',null,'dispatcher private');
+select throws_ok($$select public.get_assignment_email_status('a2000000-0000-4000-8000-000000000001')$$,'42501',null,'status Teacher only');
+reset role;
+select is((select count(*) from public.peer_assignment_email_outbox),0::bigint,'self claim creates no assignment email');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select is((select success from public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000004')),false,'inactive supporter rejected');
+select ok((select success from public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000001')),'Teacher assigns mentor');
+select ok((select success from public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000003','a1000000-0000-4000-8000-000000000002')),'Teacher assigns SWAG');
+select is((select success from public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000001')),false,'duplicate assign is no change');
+select ok((select success from public.teacher_reassign_peer_request('a2000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000001')),'same supporter reassign no-op');
+reset role;
+select is((select count(*) from public.peer_assignment_email_outbox),2::bigint,'exactly one event per real assignment');
+select is((select count(*) from public.peer_confirmation_email_outbox),0::bigint,'confirmation queue unaffected');
+select is((select recipient_address from public.peer_assignment_email_outbox where recipient_role='peer_mentor'),'assignment-mentor@example.invalid','only assigned mentor recipient');
+select is((select recipient_address from public.peer_assignment_email_outbox where recipient_role='swag_member'),'assignment-swag@example.invalid','only assigned SWAG recipient');
+select ok((select bool_and(actor_id='a1000000-0000-4000-8000-000000000003') from public.peer_assignment_email_outbox),'protected actor audit preserved');
+update public.peer_support_requests set category='Wellbeing' where id='a2000000-0000-4000-8000-000000000002';
+select is((select count(*) from public.peer_assignment_email_outbox),2::bigint,'unrelated field update creates no event');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select ok((select success from public.teacher_reassign_peer_request('a2000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002')),'A to B supported');
+reset role;
+select is((select count(*) from public.peer_assignment_email_outbox where status='superseded'),1::bigint,'old A event superseded');
+select is((select count(*) from public.peer_assignment_email_outbox where status='pending'),2::bigint,'only current B events pending');
+create temp table claimed as select * from public.claim_assignment_email_job('a3000000-0000-4000-8000-000000000001');
+select is((select count(*) from claimed),1::bigint,'one leased job');
+select isnt((select event_id from public.claim_assignment_email_job('a3000000-0000-4000-8000-000000000002')),(select event_id from claimed),'another worker cannot claim the leased event');
+select throws_ok($$select public.prepare_assignment_email((select event_id from claimed),'a3000000-0000-4000-8000-000000000001','{"to":["attacker@example.invalid"],"subject":"spoof"}')$$,null,null,'forged recipient payload rejected');
+select ok(public.prepare_assignment_email((select event_id from claimed),'a3000000-0000-4000-8000-000000000001',jsonb_build_object('to',jsonb_build_array((select recipient_address from claimed)),'subject','A peer support request has been assigned to you | SWAG','html','frozen html','text','frozen text')) is not null,'first payload stored');
+select is(public.prepare_assignment_email((select event_id from claimed),'a3000000-0000-4000-8000-000000000001','{"html":"changed"}')->>'html','frozen html','payload immutable on retries');
+select ok(public.finish_assignment_email((select event_id from claimed),'a3000000-0000-4000-8000-000000000001','temporary',null,'provider_http_429',120),'API error finishes notification only');
+select is((select r.status::text from public.peer_support_requests r join claimed c on c.request_id=r.id),'accepted','API failure keeps successful assignment');
+select is((select status from public.peer_assignment_email_outbox where event_id=(select event_id from claimed)),'pending','temporary failure queued durably');
+update public.peer_assignment_email_outbox set first_attempt_at=now()-interval '25 hours',next_attempt_at=now()-interval '1 minute' where event_id=(select event_id from claimed);
+select count(*) from public.claim_assignment_email_job('a3000000-0000-4000-8000-000000000003');
+select is((select status from public.peer_assignment_email_outbox where event_id=(select event_id from claimed)),'needs-review','uncertain old event not blindly resent');
+-- The second leased event is accepted and must never be claimed again.
+select ok(public.finish_assignment_email((select event_id from public.peer_assignment_email_outbox where lease_owner='a3000000-0000-4000-8000-000000000002'),'a3000000-0000-4000-8000-000000000002','accepted','provider-id'), 'provider acceptance recorded');
+select is((select count(*) from public.claim_assignment_email_job('a3000000-0000-4000-8000-000000000004')),0::bigint,'accepted and review events not retried');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select success from public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000004','a1000000-0000-4000-8000-000000000001');
+select success from public.teacher_assign_peer_request('a2000000-0000-4000-8000-000000000005','a1000000-0000-4000-8000-000000000001');
+reset role;
+update public.peer_support_requests set status='cancelled' where id='a2000000-0000-4000-8000-000000000004';
+update public.peer_support_requests set status='scheduled' where id='a2000000-0000-4000-8000-000000000005';
+select is((select count(*) from public.claim_assignment_email_job('a3000000-0000-4000-8000-000000000005')),0::bigint,'cancelled and confirmed unsent events skipped');
+select is((select count(*) from public.peer_assignment_email_outbox where status='superseded'),3::bigint,'obsolete events superseded');
+select * from finish();
+rollback;

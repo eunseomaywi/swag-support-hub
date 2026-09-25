@@ -1042,6 +1042,15 @@ export type Database = {
           assignment_attention_hours: number;
         }[];
       };
+      get_assignment_email_status: {
+        Args: { p_request_id: string; p_retry_event_id?: string };
+        Returns: {
+          event_id: string;
+          status: string;
+          attempts: number;
+          last_error_code: string | null;
+        }[];
+      };
       get_peer_dashboard_counts: {
         Args: never;
         Returns: {

@@ -14,6 +14,8 @@ import {
 import { periodLabels } from "@/lib/peer-readiness";
 import { DashboardPageHeading, PageState } from "./DashboardLayout";
 import { SupporterIdentity } from "./SupporterIdentity";
+import { RequestDateBadge } from "./RequestDateBadge";
+import { AssignmentEmailStatus } from "./AssignmentEmailStatus";
 
 const button =
   "min-h-11 rounded-lg border border-border px-4 text-sm font-semibold disabled:opacity-50";
@@ -134,11 +136,10 @@ export function TeacherRequestsPage({
                     {row.session_start ? (
                       appointmentTime(row.session_start, row.session_end)
                     ) : (
-                      <>
-                        {row.preferred_date}
-                        <br />
-                        {periods(row.preferred_periods)}
-                      </>
+                      <RequestDateBadge
+                        date={row.preferred_date}
+                        periods={periods(row.preferred_periods)}
+                      />
                     )}
                   </div>
                   <div>
@@ -241,10 +242,27 @@ function AssignmentPanel({ row, onSaved }: { row: PeerDetail; onSaved: () => Pro
     setBusy(true);
     setError(null);
     setNotice(null);
-    const { data, error: rpcError } = await getSupabaseClient().rpc(
-      row.status === "open" ? "teacher_assign_peer_request" : "teacher_reassign_peer_request",
-      { p_request_id: row.request_id, p_supporter_id: candidate.supporter_id },
-    );
+    const { data: sessionData } = await getSupabaseClient().auth.getSession();
+    let data: Array<{ success: boolean; outcome: string }> | null = null;
+    let rpcError = false;
+    try {
+      const response = await fetch("/api/peer-support/teacher-assignment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session?.access_token || ""}`,
+        },
+        body: JSON.stringify({
+          requestId: row.request_id,
+          supporterId: candidate.supporter_id,
+          reassign: row.status !== "open",
+        }),
+      });
+      if (!response.ok) rpcError = true;
+      else data = await response.json();
+    } catch {
+      rpcError = true;
+    }
     const outcome = data?.[0];
     if (rpcError || !outcome?.success) {
       setError(
@@ -255,7 +273,7 @@ function AssignmentPanel({ row, onSaved }: { row: PeerDetail; onSaved: () => Pro
     } else {
       await onSaved();
       setNotice(
-        `Assigned to ${candidate.supporter_name || "the selected supporter"}. They can now choose a period and confirm the meeting. No email was sent.`,
+        `Assigned to ${candidate.supporter_name || "the selected supporter"}. They can now choose a period and confirm the meeting. Assignment email processing is tracked below.`,
       );
     }
     setBusy(false);
@@ -266,7 +284,8 @@ function AssignmentPanel({ row, onSaved }: { row: PeerDetail; onSaved: () => Pro
         {row.supporter_id ? "Reassign supporter" : "Assign a supporter"}
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Choose by name, year group and role. Assignment does not confirm a meeting or send email.
+        Choose by name, year group and role. Only the assigned supporter receives an assignment
+        notification. They still need to confirm a meeting.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <label className="text-sm">
@@ -594,6 +613,10 @@ export function TeacherPeerDetail({
       {!sessionId && ["open", "accepted"].includes(row.status) && !issue(row) && (
         <AssignmentPanel row={row} onSaved={load} />
       )}
+      <AssignmentEmailStatus
+        key={`${row.request_id}/${row.supporter_id}`}
+        requestId={row.request_id}
+      />
       {sessionId && (
         <section className="paper-card border-swag-green/35 p-5 sm:p-7">
           <h2 className="text-xl font-bold text-swag-navy">Meeting record</h2>

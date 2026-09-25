@@ -20,12 +20,56 @@ const request = (path, body) =>
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
+test("Teacher assignment validates session, forwards only IDs, and survives provider failure", async (t) => {
+  let role = "peer_mentor",
+    allowed = true,
+    dispatched = 0;
+  const requestId = "92000000-0000-4000-8000-000000000001";
+  const supporterId = "91000000-0000-4000-8000-000000000001";
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (String(url).endsWith("current_app_role")) return Response.json(role);
+    if (String(url).endsWith("teacher_assign_peer_request")) {
+      assert.deepEqual(JSON.parse(options.body), {
+        p_request_id: requestId,
+        p_supporter_id: supporterId,
+      });
+      return Response.json([
+        { success: allowed, outcome: allowed ? "assigned" : "already_assigned" },
+      ]);
+    }
+    assert.match(String(url), /dispatch-(confirmation|assignment)-email$/);
+    dispatched++;
+    return new Response("{}", { status: 503 });
+  });
+  const invoke = () =>
+    app.fetch(
+      request("/api/peer-support/teacher-assignment", {
+        requestId,
+        supporterId,
+        actorRole: "teacher",
+        recipientEmail: "attacker@example.invalid",
+      }),
+      env,
+    );
+  assert.equal((await invoke()).status, 403);
+  assert.equal(dispatched, 0);
+  role = "teacher";
+  allowed = false;
+  assert.equal((await invoke()).status, 200);
+  assert.equal(dispatched, 0);
+  allowed = true;
+  const response = await invoke();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json())[0].success, true);
+  assert.equal(dispatched, 2);
+});
+
 test("generated Nitro app: actual request context, missing context, and dispatch failure never 500", async (t) => {
   let dispatches = 0;
   let fail = false;
   t.mock.method(globalThis, "fetch", async (url) => {
     if (String(url).endsWith("current_app_role")) return Response.json("peer_mentor");
-    assert.match(String(url), /functions\/v1\/dispatch-confirmation-email$/);
+    assert.match(String(url), /functions\/v1\/dispatch-(confirmation|assignment)-email$/);
     dispatches++;
     return new Response("{}", { status: fail ? 503 : 200 });
   });
@@ -44,7 +88,7 @@ test("generated Nitro app: actual request context, missing context, and dispatch
   assert.equal((await app.fetch(request("/api/peer-support/email/kick"), env)).status, 202);
   fail = true;
   assert.equal((await app.fetch(request("/api/peer-support/email/kick"), env)).status, 202);
-  assert.equal(dispatches, 3);
+  assert.equal(dispatches, 6);
 });
 
 test("production intake fails closed for missing, dummy, invalid action and foreign hostname", async (t) => {

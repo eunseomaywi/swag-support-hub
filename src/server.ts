@@ -306,17 +306,54 @@ async function processEmailOutbox(env: WorkerEnv): Promise<void> {
   const dispatchSecret = envValue(env, "EMAIL_DISPATCH_SECRET");
   const config = supabaseConfig();
   if (!dispatchSecret || !config) return;
-  const response = await fetch(`${config.url}/functions/v1/dispatch-confirmation-email`, {
-    method: "POST",
-    headers: {
-      apikey: config.key,
-      Authorization: `Bearer ${config.key}`,
-      "X-Swag-Dispatch-Secret": dispatchSecret,
-      "Content-Type": "application/json",
-    },
-    body: "{}",
-  });
-  if (!response.ok) throw new Error(`email_edge_dispatch_${response.status}`);
+  const results = await Promise.allSettled(
+    ["dispatch-confirmation-email", "dispatch-assignment-email"].map(async (name) => {
+      const response = await fetch(`${config.url}/functions/v1/${name}`, {
+        method: "POST",
+        headers: {
+          apikey: config.key,
+          Authorization: `Bearer ${config.key}`,
+          "X-Swag-Dispatch-Secret": dispatchSecret,
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      });
+      if (!response.ok) throw new Error(`email_edge_dispatch_${response.status}`);
+    }),
+  );
+  if (results.some((result) => result.status === "rejected"))
+    throw new Error("email_edge_dispatch_503");
+}
+
+async function handleTeacherAssignment(request: ServerRequest, env: WorkerEnv, ctx: unknown) {
+  if (request.method !== "POST") return jsonPrivate({ error: "method_not_allowed" }, 405);
+  if (!allowedOrigin(request) || (await authenticatedRole(request)) !== "teacher")
+    return jsonPrivate({ error: "teacher_required" }, 403);
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(request, 1024);
+  } catch {
+    return jsonPrivate({ error: "invalid_request" }, 400);
+  }
+  const requestId = body["requestId"],
+    supporterId = body["supporterId"];
+  if (
+    typeof requestId !== "string" ||
+    typeof supporterId !== "string" ||
+    !UUID.test(requestId) ||
+    !UUID.test(supporterId)
+  )
+    return jsonPrivate({ error: "invalid_request" }, 400);
+  const bearer = request.headers.get("authorization")!.slice(7);
+  const result = await supabaseRpc<Array<{ success: boolean; outcome: string }>>(
+    body["reassign"] === true ? "teacher_reassign_peer_request" : "teacher_assign_peer_request",
+    { p_request_id: requestId, p_supporter_id: supporterId },
+    bearer,
+  );
+  if (!result.ok) return jsonPrivate({ error: "assignment_rejected" }, result.status);
+  if (result.data?.[0]?.success)
+    await dispatchWithLifetime(request, ctx, () => processEmailOutbox(env));
+  return jsonPrivate(result.data);
 }
 
 async function authenticatedRole(request: Request): Promise<string | null> {
@@ -473,6 +510,8 @@ export default {
         });
       }
       if (url.pathname === "/api/peer-support/submit") return await handlePeerIntake(request, env);
+      if (url.pathname === "/api/peer-support/teacher-assignment")
+        return await handleTeacherAssignment(request, env, rawCtx);
       if (url.pathname === "/api/peer-support/email/kick")
         return await handleDispatchKick(request, env, rawCtx);
       if (url.pathname === "/api/peer-support/manage")

@@ -384,6 +384,9 @@ deno_version = 2
 [functions.dispatch-confirmation-email]
 verify_jwt = true
 
+[functions.dispatch-assignment-email]
+verify_jwt = true
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

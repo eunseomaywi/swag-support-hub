@@ -45,14 +45,15 @@ export function escapeHtml(value: string): string {
 
 type Detail = [label: string, value: string];
 
-function renderCard(
-  job: ConfirmationDetails,
+export function renderEmailCard(
+  job: { recipient_address: string; subject: string },
   heading: string,
   name: string | null | undefined,
   intro: string,
   details: Detail[],
   closing = "",
   tagline = "",
+  options?: { preheader: string; cta: { label: string; url: string } },
 ) {
   const fullName = name?.trim();
   const greeting = fullName ? `Hi ${fullName},` : "Hi there,";
@@ -66,20 +67,54 @@ function renderCard(
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(heading)}</title></head><body style="margin:0;padding:0;background:#ffffff;color:#18384d;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;border:1px solid #dceaf4;border-radius:18px;background:#ffffff"><tr><td style="padding:24px 24px 18px;border-radius:18px 18px 0 0;background:#edf7ff"><p style="margin:0 0 14px;font-size:13px;letter-spacing:1px;font-weight:700;color:#356e99">SWAG PEER SUPPORT</p><h1 style="margin:0;font-size:26px;line-height:1.3;color:#18384d">${escapeHtml(heading)}</h1></td></tr><tr><td style="padding:24px"><p style="margin:0 0 14px;font-size:16px;line-height:1.7">${escapeHtml(greeting)}</p><p style="margin:0 0 22px;font-size:16px;line-height:1.7">${escapeHtml(intro)}</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4faff;border:1px solid #e0edf6;border-radius:12px">${rows}</table>${closing ? `<p style="margin:22px 0 0;font-size:15px;line-height:1.7;color:#425d70">${escapeHtml(closing)}</p>` : ""}<p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #e0edf6;font-size:12px;line-height:1.7;color:#587185">${escapeHtml(footer)}${tagline ? `<br>${escapeHtml(tagline)}` : ""}</p></td></tr></table></td></tr></table></body></html>`;
   return {
     to: job.recipient_address,
-    subject: CONFIRMATION_SUBJECTS[job.recipient_kind],
-    html,
+    subject: job.subject,
+    html: options
+      ? html
+          .replace(
+            '<table role="presentation" width="100%"',
+            `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${escapeHtml(options.preheader)}</div><table role="presentation" width="100%"`,
+          )
+          .replace(
+            '<p style="margin:28px',
+            `<p style="margin:24px 0"><a href="${escapeHtml(options.cta.url)}" style="display:inline-block;padding:14px 20px;border-radius:10px;background:#356e99;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(options.cta.label)}</a></p><p style="margin:28px`,
+          )
+      : html,
     text: [
       heading,
       greeting,
       intro,
       details.map(([label, value]) => `${label}\n${value}`).join("\n\n"),
       closing,
+      ...(options ? [options.cta.label, options.cta.url] : []),
       footer,
       tagline,
     ]
       .filter(Boolean)
       .join("\n\n"),
   };
+}
+
+function renderCard(
+  job: ConfirmationDetails,
+  heading: string,
+  name: string | null | undefined,
+  intro: string,
+  details: Detail[],
+  closing = "",
+  tagline = "",
+) {
+  return renderEmailCard(
+    {
+      recipient_address: job.recipient_address,
+      subject: CONFIRMATION_SUBJECTS[job.recipient_kind],
+    },
+    heading,
+    name,
+    intro,
+    details,
+    closing,
+    tagline,
+  );
 }
 
 function schedule(job: ConfirmationDetails): Detail[] {

@@ -62,8 +62,7 @@ export function smtpFailure(error: unknown): {
 } {
   const smtpError = error as { code?: unknown; responseCode?: unknown };
   const code = typeof smtpError?.code === "string" ? smtpError.code : "unknown";
-  const responseCode =
-    typeof smtpError?.responseCode === "number" ? smtpError.responseCode : null;
+  const responseCode = typeof smtpError?.responseCode === "number" ? smtpError.responseCode : null;
   if (code === "ETIMEDOUT" || code === "ESOCKET")
     return { outcome: "uncertain", errorCode: "gmail_smtp_timeout_uncertain" };
   if (code === "EAUTH" || (responseCode !== null && responseCode >= 500))

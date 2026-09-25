@@ -1,5 +1,10 @@
 # SWAG Support Hub deployment
 
+Current assignment-email/newsletter release and recovery instructions:
+[assignment-newsletter-release.md](assignment-newsletter-release.md).
+The deployed confirmation provider is Gmail SMTP; older Resend confirmation setup notes below
+are historical. Resend is used only for the new Teacher-assignment notification.
+
 ## Fixed targets
 
 - Supabase project ref: `ezjvfrdakzyoaijucqij`

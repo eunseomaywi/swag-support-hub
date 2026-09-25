@@ -80,3 +80,11 @@ Release order:
 6. Smoke-test public pages, login, protected direct routes, form availability and unauthorised endpoints. Perform a real email E2E only with an approved sender, schedule, accounts and recipients.
 
 If a release problem occurs, keep intake/email disabled, redeploy the last reviewed Worker build, and write a forward corrective migration. Do not delete request, session, action, outbox or provider-event history, and do not confuse application rollback with database rollback.
+
+# Current email policy
+
+Confirmation messages use the existing Gmail SMTP dispatcher. Teacher manual assignment adds
+one Resend notification to the newly assigned supporter, with a separate event/outbox.
+See [assignment-newsletter-release.md](assignment-newsletter-release.md) for current runtime
+configuration, retry rules and deployment order. Older Resend confirmation notes below are
+historical and must not be used to replace the working Gmail configuration.

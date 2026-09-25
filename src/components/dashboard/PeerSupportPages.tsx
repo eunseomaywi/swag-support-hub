@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { RequestDateBadge } from "./RequestDateBadge";
 import {
   CheckCircle2,
   Clock3,
@@ -303,10 +304,9 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
               <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-swag-navy">
                 {row.private_explanation || "No additional details were provided."}
               </p>
-              <p className="mt-3 text-sm font-semibold text-swag-navy">
-                {seoulDate.format(new Date(`${row.preferred_date}T00:00:00+09:00`))} ·{" "}
-                {row.preferred_time}
-              </p>
+              <div className="mt-3">
+                <RequestDateBadge date={row.preferred_date} periods={row.preferred_time} />
+              </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 Submitted {format(row.submitted_at)}
               </p>

@@ -14,7 +14,7 @@ export type ActivitySection = {
 export type PublicActivity = {
   id: string;
   slug: string;
-  entryType: "event" | "programme";
+  entryType: "event" | "programme" | "newsletter";
   title: string;
   summary: string;
   date?: string;

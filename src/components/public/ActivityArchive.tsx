@@ -7,8 +7,9 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { PublicActivity } from "@/content/activities";
+import { newsletters } from "@/content/newsletters";
 import {
   Dialog,
   DialogClose,
@@ -49,7 +50,9 @@ function ActivityArtwork({
           loading={mode === "card" ? "lazy" : "eager"}
           className={cn(
             "h-full w-full bg-muted",
-            mode === "card" ? "object-cover" : "object-contain",
+            mode === "card" && activity.entryType !== "newsletter"
+              ? "object-cover"
+              : "object-contain",
           )}
           onError={() => setFailed(true)}
         />
@@ -59,6 +62,13 @@ function ActivityArtwork({
       </figure>
     );
   }
+
+  if (activity.entryType === "newsletter")
+    return (
+      <div className="flex h-full items-center justify-center bg-swag-blue/5 p-6 text-sm text-muted-foreground">
+        Newsletter artwork unavailable
+      </div>
+    );
 
   return (
     <div
@@ -107,10 +117,18 @@ export function ActivityArchive({
   const currentIndex = selected
     ? activities.findIndex((activity) => activity.id === selected.id)
     : -1;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [selected?.id]);
   const previous = currentIndex > 0 ? activities[currentIndex - 1] : undefined;
   const next =
     currentIndex >= 0 && currentIndex < activities.length - 1
       ? activities[currentIndex + 1]
+      : undefined;
+  const newsletter =
+    selected?.entryType === "newsletter"
+      ? newsletters.find((item) => item.id === selected.id)
       : undefined;
 
   useEffect(() => {
@@ -196,12 +214,19 @@ export function ActivityArchive({
                   {activity.summary}
                 </p>
                 <span className="mt-5 inline-flex min-h-11 items-center gap-2 self-start font-semibold text-swag-navy">
-                  View overview
+                  {activity.entryType === "newsletter" ? "Read newsletter" : "View overview"}
                   <ArrowRight
                     className="h-4 w-4 transition-transform group-hover:translate-x-1"
                     aria-hidden="true"
                   />
                 </span>
+                {activity.entryType === "newsletter" && (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-swag-blue">
+                    {activity.tags.map((tag) => (
+                      <span key={tag}>#{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </button>
           </article>
@@ -220,12 +245,15 @@ export function ActivityArchive({
               openerRef.current.focus({ preventScroll: true });
             }}
           >
-            <div className="max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain sm:max-h-[min(88dvh,860px)]">
+            <div
+              ref={scrollRef}
+              className="max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain sm:max-h-[min(88dvh,860px)]"
+            >
               <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-swag-blue">
-                    Activity {String(currentIndex + 1).padStart(2, "0")} /{" "}
-                    {String(activities.length).padStart(2, "0")}
+                    {newsletter ? "Newsletter" : "Activity"} {currentIndex + 1} /{" "}
+                    {activities.length}
                   </p>
                   <DialogTitle className="truncate font-display text-base font-bold text-swag-navy sm:text-lg">
                     {selected.title}
@@ -265,9 +293,46 @@ export function ActivityArchive({
                   <h2 className="mt-2 break-words text-3xl font-bold leading-tight text-swag-navy sm:text-4xl">
                     {selected.title}
                   </h2>
-                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                    {selected.summary}
-                  </p>
+                  {newsletter ? (
+                    <>
+                      {newsletter.sourceLabel && (
+                        <p className="mt-4 text-sm text-swag-blue">{newsletter.sourceLabel}</p>
+                      )}
+                      {newsletter.subtitle && (
+                        <p className="mt-4 text-lg font-semibold text-swag-navy">
+                          {newsletter.subtitle}
+                        </p>
+                      )}
+                      <div className="mt-7 space-y-5 text-base leading-relaxed text-swag-navy">
+                        {newsletter.paragraphs.map((paragraph, index) => (
+                          <p
+                            key={index}
+                            className={
+                              newsletter.emphasizedParagraph === index
+                                ? "rounded-xl border border-swag-green/30 bg-swag-green/5 p-4 font-semibold"
+                                : ""
+                            }
+                          >
+                            {paragraph}
+                          </p>
+                        ))}
+                        {newsletter.contactHref && (
+                          <p className="break-words">
+                            <a
+                              className="underline underline-offset-4"
+                              href={newsletter.contactHref}
+                            >
+                              {newsletter.contactText}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                      {selected.summary}
+                    </p>
+                  )}
 
                   <div className="mt-7 space-y-6">
                     {selected.sections.map((section) => (
@@ -286,6 +351,7 @@ export function ActivityArchive({
                         key={tag}
                         className="rounded-full border border-swag-blue/20 bg-swag-blue/5 px-3 py-1.5 text-xs font-semibold text-swag-navy"
                       >
+                        {newsletter ? "#" : ""}
                         {tag}
                       </span>
                     ))}

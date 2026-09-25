@@ -1,4 +1,5 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
+import { safeCaseReturn } from "@/lib/safe-return-to";
 import { LockKeyhole, RefreshCw } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { SwagButton, SwagLinkButton } from "@/components/SwagButton";
@@ -76,12 +77,14 @@ export function ProtectedDashboard({
 }) {
   const { user, profile, loading, profileError, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const pathname = useLocation({ select: (location) => location.pathname });
 
   useEffect(() => {
-    if (!loading && !user) {
-      void navigate({ to: "/login", replace: true });
+    if (!loading && !user && pathname !== "/login") {
+      const returnTo = safeCaseReturn(pathname);
+      void navigate({ to: "/login", search: returnTo ? { returnTo } : {}, replace: true });
     }
-  }, [loading, navigate, user]);
+  }, [loading, navigate, user, pathname]);
 
   if (loading) return <DashboardLoading />;
   if (!user) return <DashboardLoading label="Taking you to sign in…" />;
