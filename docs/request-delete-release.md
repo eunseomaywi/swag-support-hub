@@ -117,3 +117,39 @@ polling, stale detail, empty state/reload, retained Korean input, role access an
 Public Chrome verified the three original PNGs, exact remaining HTML text, contact/tags,
 dialog focus/keyboard/history/reload and footer with zero runtime/hydration/console errors.
 No real provider acceptance or delivery was tested.
+
+## Production release results
+
+Application commit: `d365132c543fc75debd058ccdc0d6052212f1f67` on local `main`.
+The clean detached worktree production build, TypeScript and six built Worker tests passed.
+The same artifact passed Chrome public checks before and after deployment.
+
+Migration `20260926120000` was applied to the linked existing project. Remote SQL lint
+passed. Read-only aggregates remain 12 requests and 9 sessions, with zero deleted requests
+or retired sessions. The new Teacher RPC is not executable by anonymous users; private
+active views grant no authenticated/service-role SELECT access. Existing RPC filtering
+was verified from deployed function definitions without querying private request content.
+
+Existing `dispatch-confirmation-email` is ACTIVE version 12, JWT verification retained.
+Existing `dispatch-assignment-email` remains ACTIVE version 1; its DB pre-send checks were
+updated by the migration. No secrets/provider settings were changed. The existing five-minute
+Worker schedule and bindings were preserved.
+
+Worker version `d0f501c5-9508-4bdd-a0f5-52b53b1a5048` serves 100%, deployment
+`4d2c45db-5d64-4c1e-a4b9-cc12c3536394`, tagged `d365132` with the application commit message.
+Public Chrome at 375/768/1440px verified exact remaining newsletter text/contact/tags, decoded
+PNG responses, removal of programme/source labels, keyboard/focus/navigation/history/reload,
+footer and login/public routes. Runtime, console and hydration error counts were zero.
+Protected production routes were checked only for unauthenticated redirects; authenticated
+deletion and role screens were exercised exclusively in the isolated local project.
+
+Normal Git push and a retry using the existing `gh` credential helper both returned HTTP 403.
+The GitHub API reports repository push permission, but Git transport still rejects the current
+credential. Remote `main` remains `1445770f7d1a018356aea35b3022c60e12c804b8`; no history was
+rewritten. Restore Git transport credential authorization/Contents write access locally before
+pushing the retained commits. Do not paste a token into chat. GitHub/Lovable sync is not complete.
+
+No production request was created/deleted and no test email was sent. Actual SMTP/Resend
+delivery is unverified. Resend's existing missing `RESEND_FROM_EMAIL` must be configured with
+an approved verified sender in this project's Supabase Edge Function Secrets, independently
+of this deletion release; no sender domain was fabricated.

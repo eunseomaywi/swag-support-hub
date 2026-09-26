@@ -165,6 +165,8 @@ try {
         assert.ok(text.includes(`${i + 1} / 3`));
         assert.ok(await evaluate("document.documentElement.scrollWidth <= innerWidth"));
         if (i === 0) {
+          // Capture the settled dialog, not Radix's opening fade/zoom frame.
+          await pause(300);
           const image = await call("Page.captureScreenshot", { format: "png" });
           await writeFile(
             `/private/tmp/swag-newsletter-${width}.png`,
