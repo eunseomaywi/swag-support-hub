@@ -34,6 +34,7 @@ test("Gmail dispatcher sends separate recipients and records each outcome; retry
         claimed = true;
         return batch as T;
       }
+      if (name === "prepare_confirmation_email_send") return true as T;
       assert.equal(name, "finish_confirmation_email_job");
       finished.push(body);
       return true as T;
@@ -95,4 +96,23 @@ test("waitUntil keeps its actual receiver, otherwise dispatch is awaited safely"
   await dispatchWithLifetime(undefined, undefined, async () => {
     throw new Error("network failure");
   });
+});
+
+test("deleted job after batch claim is rechecked and never sent or falsely finished", async () => {
+  const calls: string[] = [];
+  const processed = await dispatchConfirmationBatch({
+    secret: "fixture",
+    rpc: async <T>(name: string): Promise<T> => {
+      calls.push(name);
+      if (name === "claim_confirmation_email_jobs_v2") return [{ job_id: "deleted-fixture" }] as T;
+      assert.equal(name, "prepare_confirmation_email_send");
+      return false as T;
+    },
+    send: async () => {
+      assert.fail("A deleted request must never reach SMTP");
+    },
+    failure: () => ({ outcome: "permanent", errorCode: "fixture" }),
+  });
+  assert.equal(processed, 1);
+  assert.deepEqual(calls, ["claim_confirmation_email_jobs_v2", "prepare_confirmation_email_send"]);
 });

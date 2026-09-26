@@ -1,5 +1,5 @@
 import { useSearch, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { YEAR_GROUPS, type SupporterIdentity as Identity } from "@/lib/supporter-identity";
 import {
@@ -16,6 +16,10 @@ import { DashboardPageHeading, PageState } from "./DashboardLayout";
 import { SupporterIdentity } from "./SupporterIdentity";
 import { RequestDateBadge } from "./RequestDateBadge";
 import { AssignmentEmailStatus } from "./AssignmentEmailStatus";
+import { DeleteRequestButton } from "./DeleteRequestButton";
+import { RequestList, RequestListRow, RequestStatus } from "./RequestList";
+import { useRequestRefresh } from "@/hooks/useRequestRefresh";
+import { requestedDateLabel } from "@/lib/request-countdown";
 
 const button =
   "min-h-11 rounded-lg border border-border px-4 text-sm font-semibold disabled:opacity-50";
@@ -23,7 +27,7 @@ const primary =
   "min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-50";
 const input = "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm";
 function periods(values: string[]) {
-  return values.map((p) => periodLabels[p as keyof typeof periodLabels] || p).join(", ");
+  return values.map((p) => periodLabels[p as keyof typeof periodLabels] || p).join(" · ");
 }
 function issue(row: PeerSummary) {
   return !row.supporter_id && ["accepted", "scheduled"].includes(row.status);
@@ -42,24 +46,36 @@ export function TeacherRequestsPage({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadVersion = useRef(0);
   const load = useCallback(async () => {
-    setLoading(true);
+    const version = ++loadVersion.current;
     setError(null);
     const { data, error: rpcError } = await getSupabaseClient().rpc(
       "list_teacher_peer_requests_v2",
       { p_filter: search.filter, p_page_size: 30, p_page_offset: search.page * 30 },
     );
+    if (version !== loadVersion.current) return;
     if (rpcError) setError("Requests could not be loaded. Try again or check your Teacher access.");
     else {
       const result = data as unknown as { rows: PeerSummary[]; total: number };
       setRows(result.rows);
       setTotal(result.total);
+      const lastPage = Math.max(0, Math.ceil(result.total / 30) - 1);
+      if (search.page > lastPage) {
+        await navigate({
+          to: meetings ? "/teacher/bookings" : "/teacher/peer-support",
+          search: {
+            filter: search.filter,
+            page: lastPage,
+            from: meetings ? "meetings" : "requests",
+          },
+          replace: true,
+        });
+      }
     }
     setLoading(false);
-  }, [search.filter, search.page]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  }, [search.filter, search.page, navigate, meetings]);
+  useRequestRefresh(load);
   function change(filter: string, page: number) {
     void navigate({
       to: (meetings ? "/teacher/bookings" : "/teacher/peer-support") as never,
@@ -104,76 +120,77 @@ export function TeacherRequestsPage({
         ) : error ? (
           <PageState tone="orange">{error}</PageState>
         ) : rows.length === 0 ? (
-          <PageState>No requests match this filter.</PageState>
+          <PageState>No requests to show.</PageState>
         ) : (
-          <div className="grid gap-3">
+          <RequestList>
             {rows.map((row) => {
               const detailPath =
                 meetings && row.session_id
                   ? `/teacher/bookings/${row.session_id}`
                   : `/teacher/peer-support/${row.request_id}`;
               return (
-                <article
+                <RequestListRow
                   key={row.request_id}
-                  className="paper-card grid gap-4 border-swag-blue/30 p-5 lg:grid-cols-[1.2fr_1fr_1fr_auto]"
-                >
-                  <div className="min-w-0">
-                    <a
-                      href={`${detailPath}?${query}`}
-                      className="break-words text-lg font-bold text-swag-navy underline decoration-swag-blue/30 underline-offset-4"
-                    >
-                      {row.student_name}
-                    </a>
-                    <p className="mt-1 text-sm text-muted-foreground">{row.year_group}</p>
-                    <p className="mt-2 text-xs font-semibold text-swag-blue">
-                      {statusLabel(row.status)}
-                    </p>
-                  </div>
-                  <div className="min-w-0 text-sm">
-                    <p className="mb-1 text-xs text-muted-foreground">
-                      {row.session_start ? "Meeting" : "Requested"}
-                    </p>
-                    {row.session_start ? (
-                      appointmentTime(row.session_start, row.session_end)
-                    ) : (
-                      <RequestDateBadge
-                        date={row.preferred_date}
-                        periods={periods(row.preferred_periods)}
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs text-muted-foreground">Supporter</p>
-                    {issue(row) ? (
-                      <p className="text-sm text-swag-orange">
-                        Assignment data needs review — no linked supporter.
-                      </p>
-                    ) : (
-                      <SupporterIdentity identity={row} manage />
-                    )}
-                  </div>
-                  <div className="flex flex-col items-start gap-2 text-xs">
-                    <span
-                      className={row.email_attention ? "text-swag-orange" : "text-muted-foreground"}
-                    >
-                      {!row.session_id
-                        ? "Sent after confirmation"
-                        : row.email_attention
-                          ? "Email needs attention"
-                          : "Confirmation recorded"}
-                    </span>
-                    {row.needs_attention && <span className="text-swag-orange">Needs action</span>}
-                    <a
-                      href={`${detailPath}?${query}`}
-                      className="inline-flex min-h-11 items-center font-semibold text-swag-blue underline"
-                    >
-                      View details →
-                    </a>
-                  </div>
-                </article>
+                  student={
+                    <div className="min-w-0">
+                      <a
+                        href={`${detailPath}?${query}`}
+                        className="break-words text-lg font-bold text-swag-navy underline decoration-swag-blue/30 underline-offset-4"
+                      >
+                        {row.student_name}
+                      </a>
+                      <p className="mt-1 text-sm text-muted-foreground">{row.year_group}</p>
+                    </div>
+                  }
+                  date={
+                    <div className="min-w-0 text-sm">
+                      {row.session_start ? (
+                        appointmentTime(row.session_start, row.session_end)
+                      ) : (
+                        <RequestDateBadge
+                          date={row.preferred_date}
+                          periods={periods(row.preferred_periods)}
+                        />
+                      )}
+                    </div>
+                  }
+                  supporter={
+                    <div>
+                      {issue(row) ? (
+                        <p className="text-sm text-swag-orange">
+                          Assignment data needs review — no linked supporter.
+                        </p>
+                      ) : (
+                        <SupporterIdentity identity={row} compact />
+                      )}
+                    </div>
+                  }
+                  status={
+                    <>
+                      <RequestStatus>{statusLabel(row.status)}</RequestStatus>
+                      {row.email_attention && (
+                        <p className="mt-2 text-xs text-swag-orange">Email needs attention</p>
+                      )}
+                      {row.needs_attention && (
+                        <p className="mt-2 text-xs text-swag-orange">Needs action</p>
+                      )}
+                    </>
+                  }
+                  actions={
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <a
+                        href={`${detailPath}?${query}`}
+                        className="inline-flex min-h-11 items-center font-semibold text-swag-blue underline"
+                      >
+                        View details
+                      </a>
+                      <DeleteRequestButton requestId={row.request_id} onDeleted={load} />
+                    </div>
+                  }
+                />
               );
             })}
-          </div>
+          </RequestList>
         )}
         {!loading && !error && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -407,11 +424,14 @@ export function TeacherPeerDetail({
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [correction, setCorrection] = useState("");
+  const loadVersion = useRef(0);
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoadError(null);
     const response = sessionId
       ? await getSupabaseClient().rpc("get_teacher_peer_meeting", { p_session_id: sessionId })
       : await getSupabaseClient().rpc("get_teacher_peer_request", { p_request_id: requestId! });
+    if (version !== loadVersion.current) return;
     if (response.error) {
       setLoadError(
         response.error.code === "42501"
@@ -422,9 +442,7 @@ export function TeacherPeerDetail({
     } else setRow(response.data as unknown as PeerDetail | null);
     setLoading(false);
   }, [requestId, sessionId]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useRequestRefresh(load);
   const backPath = search.from === "meetings" ? "/teacher/bookings" : "/teacher/peer-support";
   const query = new URLSearchParams({
     filter: search.filter,
@@ -482,9 +500,7 @@ export function TeacherPeerDetail({
   if (!row)
     return (
       <>
-        <PageState tone="orange">
-          {loadError || "This request or meeting was not found or is unavailable to your account."}
-        </PageState>
+        <PageState tone="orange">{loadError || "This request is no longer available."}</PageState>
         <button onClick={() => void load()} className={`${button} mt-4`}>
           Try again
         </button>
@@ -529,6 +545,9 @@ export function TeacherPeerDetail({
             : row.status,
         )}
       />
+      <div className="mb-5 flex justify-end">
+        <DeleteRequestButton requestId={row.request_id} onDeleted={load} />
+      </div>
       {loadError && (
         <p role="alert" className="mb-4 text-sm text-swag-orange">
           {loadError}
@@ -553,7 +572,7 @@ export function TeacherPeerDetail({
             <dd className="mt-1 font-semibold">
               {sessionId
                 ? appointmentTime(row.session_start, row.session_end)
-                : `${row.preferred_date} · ${periods(row.preferred_periods)}`}
+                : `${requestedDateLabel(row.preferred_date)} · ${periods(row.preferred_periods)}`}
             </dd>
           </div>
           <div>

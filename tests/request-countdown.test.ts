@@ -9,17 +9,19 @@ import { createRequestClock } from "../src/lib/request-clock";
 import { safeCaseReturn } from "../src/lib/safe-return-to";
 const at = (date: string, now: string) => requestCountdown(date, Date.parse(now));
 test("KST countdown: exact example, under a day/minute, midnight and past dates", () => {
-  assert.equal(at("2026-09-29", "2026-09-26T19:25:00+09:00"), "D-2일 4시간 35분");
-  assert.equal(at("2026-09-27", "2026-09-26T19:25:00+09:00"), "D-4시간 35분");
-  assert.equal(at("2026-09-27", "2026-09-26T23:59:30+09:00"), "D-1분 미만");
-  assert.equal(at("2026-09-27", "2026-09-27T00:00:00+09:00"), "D-Day");
-  assert.equal(at("2026-09-27", "2026-09-27T23:59:59+09:00"), "D-Day");
-  assert.equal(at("2026-09-26", "2026-09-27T00:00:00+09:00"), "요청일 지남 · 1일");
+  assert.equal(at("2026-09-29", "2026-09-26T19:25:00+09:00"), "D-2d 4h 35m");
+  assert.equal(at("2026-09-27", "2026-09-26T19:25:00+09:00"), "D-4h 35m");
+  assert.equal(at("2026-09-27", "2026-09-26T23:59:30+09:00"), "Less than 1m");
+  assert.equal(at("2026-09-27", "2026-09-27T00:00:00+09:00"), "Today");
+  assert.equal(at("2026-09-27", "2026-09-27T23:59:59+09:00"), "Today");
+  assert.equal(at("2026-09-26", "2026-09-27T00:00:00+09:00"), "1 day past");
+  assert.equal(at("2026-09-24", "2026-09-27T00:00:00+09:00"), "3 days past");
+  assert.equal(at("2026-09-27", "2026-09-26T23:25:00+09:00"), "D-35m");
 });
 test("calendar boundaries, leap year, invalid dates and SSR snapshot", () => {
-  assert.equal(at("2027-01-01", "2026-12-31T23:00:00+09:00"), "D-1시간 0분");
-  assert.equal(at("2028-03-01", "2028-02-28T00:00:00+09:00"), "D-2일 0시간 0분");
-  assert.equal(at("2026-10-01", "2026-09-30T23:30:00+09:00"), "D-0시간 30분");
+  assert.equal(at("2027-01-01", "2026-12-31T23:00:00+09:00"), "D-1h 0m");
+  assert.equal(at("2028-03-01", "2028-02-28T00:00:00+09:00"), "D-2d 0h 0m");
+  assert.equal(at("2026-10-01", "2026-09-30T23:30:00+09:00"), "D-30m");
   for (const value of [
     null,
     undefined,
@@ -31,16 +33,16 @@ test("calendar boundaries, leap year, invalid dates and SSR snapshot", () => {
     "bad",
   ]) {
     assert.equal(requestedMidnight(value), null);
-    assert.equal(requestCountdown(value, Date.now()), "희망 날짜 미지정");
+    assert.equal(requestCountdown(value, Date.now()), "Date not specified");
   }
-  assert.equal(requestCountdown("2026-09-29", null), "요청일 기준 · KST");
+  assert.equal(requestCountdown("2026-09-29", null), "Requested date · KST");
   assert.equal(requestedDateLabel("2026-09-29"), "29 Sept 2026");
 });
 test("client timezone cannot alter countdown", () => {
   const prior = process.env.TZ;
   for (const zone of ["America/Los_Angeles", "Pacific/Honolulu", "UTC", "Asia/Seoul"]) {
     process.env.TZ = zone;
-    assert.equal(at("2026-09-29", "2026-09-26T10:25:00Z"), "D-2일 4시간 35분");
+    assert.equal(at("2026-09-29", "2026-09-26T10:25:00Z"), "D-2d 4h 35m");
   }
   if (prior === undefined) delete process.env.TZ;
   else process.env.TZ = prior;

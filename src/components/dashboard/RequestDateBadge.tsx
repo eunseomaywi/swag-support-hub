@@ -12,10 +12,8 @@ export function RequestDateBadge({ date, periods }: { date: string | null; perio
       <span className="inline-block rounded-full border border-swag-blue/25 bg-swag-blue/5 px-3 py-1 font-semibold">
         {requestCountdown(date, now)}
       </span>
-      <p>
-        {requestedDateLabel(date)}
-        {periods ? ` · ${periods}` : ""}
-      </p>
+      <p>{requestedDateLabel(date)}</p>
+      {periods && <p className="text-xs text-muted-foreground">{periods}</p>}
       <span className="sr-only">{REQUEST_DATE_HELP}</span>
     </div>
   );

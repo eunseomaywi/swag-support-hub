@@ -15,7 +15,6 @@ export const newsletters: readonly Newsletter[] = [
     id: "peer-mentoring",
     slug: "peer-mentoring",
     sourcePage: 1,
-    sourceLabel: "Damian - peer mentor advertisement",
     title: "Learn Together, Grow Together",
     entryType: "newsletter",
     typeLabel: "SWAG Newsletter",

@@ -55,6 +55,7 @@ test("real Edge handler uses existing secret-gated RPC grants and renders separa
       const body = JSON.parse(options.body);
       assert.equal(body.p_dispatch_secret, settings.EMAIL_DISPATCH_SECRET);
       if (url.endsWith("claim_confirmation_email_jobs_v2")) return Response.json(jobs);
+      if (url.endsWith("prepare_confirmation_email_send")) return Response.json(true);
       assert.ok(url.endsWith("finish_confirmation_email_job"));
       finished.push(body);
       return Response.json(true);

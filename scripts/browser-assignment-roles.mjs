@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
+import { writeFile } from "node:fs/promises";
 import { randomBytes, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import WebSocket from "ws";
@@ -33,6 +34,7 @@ const sql = (query) =>
 const password = `Fixture-${randomBytes(18).toString("hex")}!`,
   users = [],
   requestIds = [randomUUID(), randomUUID(), randomUUID()];
+const paginationIds = Array.from({ length: 29 }, () => randomUUID());
 let server, chrome, ws;
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 try {
@@ -54,9 +56,13 @@ try {
     sql(
       `select public.admin_set_staff_registration('${user.id}','${role}',true);update public.profiles set year_group=${role === "teacher" ? "null" : "'Year 12'"} where id='${user.id}';`,
     );
+    assert.equal(
+      sql(`select full_name from public.profiles where id='${user.id}';`),
+      `Fixture ${role}`,
+    );
   }
   sql(
-    `insert into public.peer_support_requests(id,student_name,year_group,contact_email,category,preferred_date,preferred_time,preferred_periods,private_explanation) values ${requestIds.map((id) => `('${id}','Fixture Student','Year 9','fixture@example.invalid','Friendships',(now() at time zone 'Asia/Seoul')::date+2,'Break',array['break','lunch_1'],'Fixture private details')`).join(",")};`,
+    `insert into public.peer_support_requests(id,student_name,year_group,contact_email,category,preferred_date,preferred_time,preferred_periods,private_explanation) values ${requestIds.map((id) => `('${id}','Fixture Student With A Long Display Name For Responsive Layout','Year 9','fixture@example.invalid','Friendships',(now() at time zone 'Asia/Seoul')::date+2,'Break',array['break','lunch_1','lunch_2'],'Fixture private details · 학생 원문 보존')`).join(",")};`,
   );
   server = spawn(
     process.execPath,
@@ -135,6 +141,13 @@ try {
     await call("Page.navigate", { url: `http://127.0.0.1:8081${path}` });
     await pause(1000);
   };
+  const waitFor = async (expression) => {
+    for (let i = 0; i < 100; i++) {
+      if (await evaluate(expression)) return;
+      await pause(100);
+    }
+    assert.fail("Browser readiness condition timed out");
+  };
   await call("Runtime.enable");
   await call("Page.enable");
   await call("Emulation.setTimezoneOverride", { timezoneId: "America/Los_Angeles" });
@@ -145,12 +158,12 @@ try {
     await evaluate(
       `(()=>{const set=(id,value)=>{const el=document.getElementById(id);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));};set('email',${JSON.stringify(user.email)});set('password',${JSON.stringify(password)});document.querySelector('form').requestSubmit();})()`,
     );
-    await pause(1300);
+    await waitFor(`document.body.innerText.includes(${JSON.stringify(`Fixture ${user.role}`)})`);
     const base =
       user.role === "teacher" ? "teacher" : user.role === "peer_mentor" ? "peer-mentor" : "swag";
     assert.equal(await evaluate("location.pathname"), `/${base}/dashboard`);
     assert.ok((await evaluate("document.body.innerText")).includes(`Fixture ${user.role}`));
-    for (const width of [375, 1440]) {
+    for (const width of [375, 768, 1440]) {
       await call("Emulation.setDeviceMetricsOverride", {
         width,
         height: 900,
@@ -159,13 +172,130 @@ try {
       });
       await navigate(`/${base}/${base === "teacher" ? "peer-support" : "requests"}`);
       const text = await evaluate("document.body.innerText");
-      assert.match(text, /D-1일|D-2일/);
+      assert.match(text, /D-[12]d/);
       assert.ok(text.includes("Break"));
       assert.ok(await evaluate("document.documentElement.scrollWidth <= innerWidth"));
       if (base === "teacher") {
         assert.ok(!text.includes("Fixture private details"));
         assert.ok(!text.includes("fixture@example.invalid"));
+        assert.ok(!text.includes("Account ·"));
+        assert.ok(!text.includes("Sent after confirmation"));
+        assert.equal(
+          await evaluate(
+            "document.querySelectorAll('button[aria-label=\"Delete request\"]').length",
+          ),
+          3,
+        );
+        const listImage = await call("Page.captureScreenshot", { format: "png" });
+        await writeFile(
+          `/private/tmp/swag-request-list-${width}.png`,
+          Buffer.from(listImage.data, "base64"),
+        );
+        await evaluate("document.querySelector('button[aria-label=\"Delete request\"]').click()");
+        await pause(250);
+        assert.equal(await evaluate("document.activeElement.textContent"), "Cancel");
+        const dialogText = await evaluate("document.querySelector('[role=alertdialog]').innerText");
+        assert.ok(dialogText.includes("Delete this request?"));
+        assert.ok(dialogText.includes("The record will be retained internally."));
+        assert.ok(!dialogText.includes("fixture@example.invalid"));
+        const image = await call("Page.captureScreenshot", { format: "png" });
+        await writeFile(
+          `/private/tmp/swag-delete-dialog-${width}.png`,
+          Buffer.from(image.data, "base64"),
+        );
+        await evaluate(
+          "[...document.querySelectorAll('[role=alertdialog] button')].find(b=>b.textContent==='Cancel').click()",
+        );
+        await pause(200);
+        assert.equal(
+          sql(
+            `select count(*) from public.peer_support_requests where id='${requestIds[0]}' and deleted_at is null;`,
+          ),
+          "1",
+        );
+      } else {
+        assert.equal(
+          await evaluate(
+            "document.querySelectorAll('button[aria-label=\"Delete request\"]').length",
+          ),
+          0,
+        );
+        await evaluate(
+          "[...document.querySelectorAll('article button')].find(b=>b.textContent==='View details').click()",
+        );
+        assert.ok((await evaluate("document.body.innerText")).includes("학생 원문 보존"));
       }
+    }
+    if (base === "teacher") {
+      // Exercise server rejection, not an optimistic client removal.
+      const openDelete = `document.querySelector('a[href^="/teacher/peer-support/${requestIds[2]}"]').closest('article').querySelector('button[aria-label="Delete request"]').click()`;
+      await evaluate(openDelete);
+      await pause(200);
+      sql(`update public.staff_members set booking_enabled=false where profile_id='${user.id}';`);
+      await evaluate(
+        "[...document.querySelectorAll('[role=alertdialog] button')].find(b=>b.textContent==='Delete request').click()",
+      );
+      await pause(500);
+      assert.ok(
+        (await evaluate("document.body.innerText")).includes(
+          "Could not delete the request. Please try again.",
+        ),
+      );
+      assert.equal(
+        sql(
+          `select count(*) from public.peer_support_requests where id='${requestIds[2]}' and deleted_at is null;`,
+        ),
+        "1",
+      );
+      assert.ok(
+        await evaluate(
+          `Boolean(document.querySelector('a[href^="/teacher/peer-support/${requestIds[2]}"]'))`,
+        ),
+      );
+      sql(`update public.staff_members set booking_enabled=true where profile_id='${user.id}';`);
+      await evaluate(
+        "[...document.querySelectorAll('[role=alertdialog] button')].find(b=>b.textContent==='Delete request').click()",
+      );
+      await pause(800);
+      assert.ok((await evaluate("document.body.innerText")).includes("Request deleted."));
+      assert.equal(
+        sql(
+          `select deleted_by::text from public.peer_support_requests where id='${requestIds[2]}' and deleted_at is not null;`,
+        ),
+        user.id,
+      );
+      assert.equal(
+        await evaluate("document.querySelectorAll('button[aria-label=\"Delete request\"]').length"),
+        2,
+      );
+      // One final row on page 2, then deletion must clamp to page 1 immediately.
+      sql(
+        `insert into public.peer_support_requests(id,student_name,year_group,contact_email,category,preferred_date,preferred_time,preferred_periods) values ${paginationIds.map((id) => `('${id}','Isolated pagination fixture','Year 9','page@example.invalid','Friendships',current_date+3,'Break',array['break'])`).join(",")};`,
+      );
+      await navigate("/teacher/peer-support?filter=all&page=1");
+      await waitFor("document.body.innerText.includes('Page 2 · 31 requests')");
+      assert.equal(
+        await evaluate("document.querySelectorAll('button[aria-label=\"Delete request\"]').length"),
+        1,
+      );
+      await evaluate("document.querySelector('button[aria-label=\"Delete request\"]').click()");
+      await pause(200);
+      await evaluate(
+        "[...document.querySelectorAll('[role=alertdialog] button')].find(b=>b.textContent==='Delete request').click()",
+      );
+      await waitFor(
+        "document.body.innerText.includes('Page 1 · 30 requests') && document.querySelectorAll('button[aria-label=\"Delete request\"]').length===30",
+      );
+      const extraIds = paginationIds.map((id) => `'${id}'`).join(",");
+      sql(
+        `delete from public.peer_support_actions where request_id in (${extraIds});delete from public.peer_support_requests where id in (${extraIds});`,
+      );
+      await navigate(`/teacher/peer-support/${requestIds[2]}`);
+      assert.ok(
+        (await evaluate("document.body.innerText")).includes(
+          "This request is no longer available.",
+        ),
+      );
     }
     if (user.role === "peer_mentor") {
       await navigate("/teacher/concerns");
@@ -191,15 +321,34 @@ try {
   await pause(1500);
   assert.equal(await evaluate("location.pathname"), `/peer-mentor/cases/${requestIds[0]}`);
   assert.ok((await evaluate("document.body.innerText")).includes("Fixture private details"));
+  // Another session's delete must invalidate the mounted case after the safe polling fallback.
+  sql(
+    `begin;set local role authenticated;select set_config('request.jwt.claims','{"sub":"${teacher.id}","role":"authenticated"}',true);select public.teacher_delete_peer_request('${requestIds[0]}');commit;`,
+  );
+  await pause(16_000);
+  assert.ok(
+    (await evaluate("document.body.innerText")).includes("This request is no longer available."),
+  );
+  assert.ok(!(await evaluate("document.body.innerText")).includes("Fixture private details"));
+  await navigate("/peer-mentor/requests");
+  assert.equal(await evaluate("document.querySelectorAll('article').length"), 1);
+  sql(
+    `begin;set local role authenticated;select set_config('request.jwt.claims','{"sub":"${teacher.id}","role":"authenticated"}',true);select public.teacher_delete_peer_request('${requestIds[1]}');commit;`,
+  );
+  await pause(16_000);
+  assert.ok((await evaluate("document.body.innerText")).includes("No requests to show."));
+  await call("Page.reload");
+  await pause(1000);
+  assert.ok((await evaluate("document.body.innerText")).includes("No requests to show."));
   assert.deepEqual(exceptions, []);
   console.log(
-    "Isolated authenticated Chrome: 3 roles, 375/1440px D-day in Los Angeles timezone, profile identity, Teacher list privacy, Concern access and login return-to passed. No emails sent.",
+    "Isolated authenticated Chrome: 3 roles, 375/768/1440px English countdown and long names, deletion Cancel/focus/server failure/success, retained Korean input, stale detail, cross-session 15s polling, empty state/reload, Teacher privacy, Concern access and login return-to passed. No emails sent.",
   );
 } finally {
   ws?.close();
   chrome?.kill("SIGTERM");
   server?.kill("SIGTERM");
-  const ids = requestIds.map((id) => `'${id}'`).join(",");
+  const ids = [...requestIds, ...paginationIds].map((id) => `'${id}'`).join(",");
   sql(
     `delete from public.peer_assignment_email_outbox where request_id in (${ids});delete from public.peer_support_actions where request_id in (${ids});delete from public.peer_support_requests where id in (${ids});${users.length ? `delete from auth.users where id in (${users.map((u) => `'${u.id}'`).join(",")});` : ""}`,
   );

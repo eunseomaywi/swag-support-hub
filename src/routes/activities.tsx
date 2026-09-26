@@ -2,22 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef } from "react";
 import { PageSection } from "@/components/PageSection";
 import { ActivityArchive } from "@/components/public/ActivityArchive";
-import {
-  findPublicActivity,
-  sortedPublicActivities,
-  type PublicActivity,
-} from "@/content/activities";
 import { canonicalUrl } from "@/content/public-copy";
 import { newsletters } from "@/content/newsletters";
 
 type ActivitiesSearch = {
-  activity?: string;
   newsletter?: string;
 };
 
 export const Route = createFileRoute("/activities")({
   validateSearch: (search: Record<string, unknown>): ActivitiesSearch => ({
-    ...(typeof search["activity"] === "string" ? { activity: search["activity"] } : {}),
     ...(typeof search["newsletter"] === "string" ? { newsletter: search["newsletter"] } : {}),
   }),
   head: () => ({
@@ -40,21 +33,11 @@ export const Route = createFileRoute("/activities")({
 });
 
 function Activities() {
-  const { activity: activitySlug, newsletter: newsletterSlug } = Route.useSearch();
+  const { newsletter: newsletterSlug } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const openerRef = useRef<HTMLButtonElement | null>(null);
-  const selected = findPublicActivity(activitySlug);
   const showNewsletters = __NEWSLETTER_ASSETS_READY__ || import.meta.env.DEV;
   const selectedNewsletter = newsletters.find((item) => item.slug === newsletterSlug);
   const newsletterOpener = useRef<HTMLButtonElement | null>(null);
-
-  const selectActivity = (activity: PublicActivity, replace: boolean) => {
-    void navigate({
-      search: { activity: activity.slug },
-      replace,
-      resetScroll: false,
-    });
-  };
 
   return (
     <PageSection
@@ -62,7 +45,7 @@ function Activities() {
       intro="Explore the programmes SWAG supports across the school community. Approved event records and photography can be added to this archive over time."
     >
       {showNewsletters && (
-        <section className="mb-14" aria-labelledby="newsletter-heading">
+        <section aria-labelledby="newsletter-heading">
           <h2 id="newsletter-heading" className="mb-6 text-3xl font-bold text-swag-navy">
             SWAG Newsletter
           </h2>
@@ -87,21 +70,6 @@ function Activities() {
           />
         </section>
       )}
-      <h2 className="mb-6 text-2xl font-bold text-swag-navy">Our programmes</h2>
-      <ActivityArchive
-        activities={sortedPublicActivities}
-        selected={selected}
-        {...(activitySlug && !selected ? { invalidSlug: activitySlug } : {})}
-        openerRef={openerRef}
-        onOpen={(activity, opener) => {
-          openerRef.current = opener;
-          selectActivity(activity, false);
-        }}
-        onChange={(activity) => selectActivity(activity, true)}
-        onClose={() => {
-          void navigate({ search: {}, replace: true, resetScroll: false });
-        }}
-      />
     </PageSection>
   );
 }

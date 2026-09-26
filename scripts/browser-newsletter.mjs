@@ -87,6 +87,13 @@ try {
     await call("Page.navigate", { url: origin + path });
     await pause(1300);
   };
+  const waitFor = async (expression) => {
+    for (let i = 0; i < 200; i++) {
+      if (await evaluate(expression)) return;
+      await pause(100);
+    }
+    assert.fail("Browser readiness condition timed out");
+  };
   await call("Page.enable");
   await call("Runtime.enable");
   for (const width of [375, 768, 1440]) {
@@ -102,15 +109,24 @@ try {
       `no overflow ${width}`,
     );
     const content = await evaluate("document.body.innerText");
-    for (const title of [
-      "Wellbeing Week",
-      "Awareness Campaigns",
-      "Peer Support",
-      "website by @eunseowi",
+    for (const title of ["website by @eunseowi"]) assert.ok(content.includes(title));
+    for (const removed of [
+      "Our programmes",
+      "Programme overview",
+      "Damian - peer mentor advertisement",
     ])
-      assert.ok(content.includes(title));
+      assert.ok(!content.includes(removed));
+    assert.equal(
+      await evaluate(
+        "document.querySelectorAll('[data-activity-card=wellbeing-week],[data-activity-card=awareness-campaigns],[data-activity-card=peer-support]').length",
+      ),
+      0,
+    );
     if (expectNewsletter) {
-      assert.equal(await evaluate("document.querySelectorAll('[data-activity-card]').length"), 6);
+      await waitFor(
+        "typeof document.querySelector('[data-activity-card=peer-mentoring]')?.onclick==='function'",
+      );
+      assert.equal(await evaluate("document.querySelectorAll('[data-activity-card]').length"), 3);
       for (const article of newsletters) {
         const image = await evaluate(
           `(async()=>{const img=document.querySelector('[data-activity-card="${article.id}"] img');img?.scrollIntoView();await img?.decode();return {complete:img?.complete,width:img?.naturalWidth,height:img?.naturalHeight,fit:img?getComputedStyle(img).objectFit:null};})()`,
@@ -130,10 +146,13 @@ try {
         );
       }
       await evaluate("document.querySelector('[data-activity-card=peer-mentoring]').click()");
-      await pause(400);
+      await waitFor(
+        "location.search.includes('newsletter=peer-mentoring') && Boolean(document.querySelector('[role=dialog]'))",
+      );
       assert.ok(await evaluate("location.search.includes('newsletter=peer-mentoring')"));
       for (let i = 0; i < 3; i++) {
         const text = await evaluate("document.querySelector('[role=dialog]').innerText");
+        assert.ok(!text.includes("Damian - peer mentor advertisement"));
         for (const value of [
           newsletters[i].title,
           ...newsletters[i].paragraphs,
@@ -193,6 +212,9 @@ try {
       );
     }
   }
+  await navigate("/activities?activity=wellbeing-week");
+  assert.equal(await evaluate("document.querySelector('[role=dialog]') === null"), true);
+  assert.equal(await evaluate("document.querySelectorAll('[data-activity-card]').length"), 3);
   for (const path of [
     "/",
     "/login",

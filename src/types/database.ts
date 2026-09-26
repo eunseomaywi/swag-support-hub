@@ -482,6 +482,7 @@ export type Database = {
       };
       peer_sessions: {
         Row: {
+          request_deleted_at: string | null;
           cancelled_at: string | null;
           completed_at: string | null;
           created_at: string;
@@ -507,6 +508,7 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           display_timezone?: string;
+          request_deleted_at?: string | null;
           id?: string;
           location?: string | null;
           mentor_id: string;
@@ -528,6 +530,7 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           display_timezone?: string;
+          request_deleted_at?: string | null;
           id?: string;
           location?: string | null;
           mentor_id?: string;
@@ -661,6 +664,8 @@ export type Database = {
       };
       peer_support_requests: {
         Row: {
+          deleted_at: string | null;
+          deleted_by: string | null;
           assigned_at: string | null;
           assigned_by: string | null;
           assigned_mentor_id: string | null;
@@ -689,6 +694,8 @@ export type Database = {
           assigned_by?: string | null;
           assigned_mentor_id?: string | null;
           assignment_method?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           cancelled_at?: string | null;
           category: string;
           completed_at?: string | null;
@@ -713,6 +720,8 @@ export type Database = {
           assigned_by?: string | null;
           assigned_mentor_id?: string | null;
           assignment_method?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           cancelled_at?: string | null;
           category?: string;
           completed_at?: string | null;
@@ -882,6 +891,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      teacher_delete_peer_request: { Args: { p_request_id: string }; Returns: boolean };
       authorize_swag_escalation: {
         Args: { p_profile_id: string; p_request_id: string };
         Returns: boolean;

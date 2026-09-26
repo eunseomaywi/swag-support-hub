@@ -19,6 +19,13 @@ export async function dispatchConfirmationBatch(deps: {
     p_lease_seconds: 120,
   });
   for (const job of jobs) {
+    // A batch may wait behind other SMTP recipients. Recheck each job just before send.
+    const sendable = await deps.rpc<boolean>("prepare_confirmation_email_send", {
+      p_dispatch_secret: deps.secret,
+      p_job_id: job.job_id,
+      p_worker_id: workerId,
+    });
+    if (!sendable) continue;
     let outcome = "temporary";
     let providerMessageId: string | null = null;
     let errorCode: string | null = "provider_network_error";

@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { DashboardPageHeading } from "./DashboardLayout";
 import { SummaryCard } from "./DashboardPieces";
 import { TeacherRequestsPage } from "./TeacherPeerDetails";
+import { useRequestRefresh } from "@/hooks/useRequestRefresh";
 import { getSupabaseClient } from "@/lib/supabase";
 import { savedReadiness } from "@/lib/peer-readiness";
 
@@ -41,7 +42,14 @@ const periodFields = [
 export function TeacherPeerSupport() {
   return (
     <TeacherRequestsPage>
-      <SchoolSettings />
+      <details className="rounded-xl border border-swag-blue/25 bg-card p-4">
+        <summary className="cursor-pointer font-semibold text-swag-navy focus-visible:outline">
+          School settings and readiness
+        </summary>
+        <div className="mt-4">
+          <SchoolSettings />
+        </div>
+      </details>
     </TeacherRequestsPage>
   );
 }
@@ -421,14 +429,15 @@ function SchoolSettings() {
 export function TeacherPeerHome() {
   const [counts, setCounts] = useState<Counts | null>(null);
   const [error, setError] = useState(false);
-  useEffect(() => {
-    void getSupabaseClient()
+  const load = useCallback(async () => {
+    await getSupabaseClient()
       .rpc("get_teacher_peer_support_counts")
       .then(({ data, error: rpcError }) => {
         setCounts((data?.[0] ?? null) as Counts | null);
         setError(Boolean(rpcError));
       });
   }, []);
+  useRequestRefresh(load);
   const value = (key: keyof Counts) => (error ? "—" : counts ? String(counts[key]) : "…");
   return (
     <>

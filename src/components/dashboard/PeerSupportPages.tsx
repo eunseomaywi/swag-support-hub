@@ -10,7 +10,7 @@ import {
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { DashboardPageHeading, PageState } from "@/components/dashboard/DashboardLayout";
 import { SummaryCard } from "@/components/dashboard/DashboardPieces";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -19,6 +19,12 @@ import { confirmationBlocker, confirmationChecklist } from "@/lib/peer-readiness
 import { queueErrorMessage } from "@/lib/supporter-identity";
 import { SupporterIdentity } from "./SupporterIdentity";
 import type { PeerDetail } from "@/lib/peer-detail";
+import { statusLabel } from "@/lib/peer-detail";
+import { periodLabels } from "@/lib/peer-readiness";
+import { useRequestRefresh } from "@/hooks/useRequestRefresh";
+import { useAuth } from "@/hooks/useAuth";
+import { RequestList, RequestListRow, RequestStatus } from "./RequestList";
+import { requestedDateLabel } from "@/lib/request-countdown";
 
 type PeerRole = "peer_mentor" | "swag_member";
 type QueueRow = {
@@ -93,18 +99,10 @@ function format(value: string | null) {
 }
 
 function useFocusRefresh(load: () => Promise<void>) {
-  useEffect(() => {
-    void load();
-    const refresh = () => {
-      if (document.visibilityState === "visible") void load();
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [load]);
+  useRequestRefresh(load);
+}
+function allowedPeriods(periods: string[]) {
+  return periods.map((p) => periodLabels[p as keyof typeof periodLabels] || p).join(" · ");
 }
 
 export function PeerHome({ role }: { role: PeerRole }) {
@@ -201,9 +199,9 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [includePassed, setIncludePassed] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(async () => {
-    setLoading(true);
     setError(null);
     const { data, error: rpcError } = await getSupabaseClient().rpc(
       "list_available_peer_requests",
@@ -281,70 +279,91 @@ export function AvailableRequests({ role }: { role: PeerRole }) {
       {loading ? (
         <PageState>Loading available requests…</PageState>
       ) : error ? null : rows.length === 0 ? (
-        <PageState tone="green">There are no available requests right now.</PageState>
+        <PageState tone="green">No requests to show.</PageState>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <RequestList>
           {rows.map((row) => (
-            <article key={row.request_id} className="paper-card border-swag-orange/30 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-swag-orange">
-                    {row.category}
-                  </p>
-                  <h2 className="mt-1 text-lg font-bold text-swag-navy">
-                    {row.student_name} · {row.year_group}
-                  </h2>
+            <RequestListRow
+              key={row.request_id}
+              student={
+                <>
+                  <h2 className="font-bold text-swag-navy">{row.student_name}</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">{row.year_group}</p>
+                </>
+              }
+              date={
+                <RequestDateBadge
+                  date={row.preferred_date}
+                  periods={allowedPeriods(row.preferred_periods)}
+                />
+              }
+              supporter={<span>Unassigned</span>}
+              status={
+                <RequestStatus>
+                  {row.dismissed ? "Unassigned · Passed" : "Unassigned"}
+                </RequestStatus>
+              }
+              actions={
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    aria-expanded={expanded === row.request_id}
+                    aria-controls={`request-details-${row.request_id}`}
+                    onClick={() => setExpanded(expanded === row.request_id ? null : row.request_id)}
+                    className="min-h-11 font-semibold text-swag-blue underline"
+                  >
+                    View details
+                  </button>
+                  <button
+                    disabled={busy === row.request_id}
+                    onClick={() => void accept(row.request_id)}
+                    className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    disabled={busy === row.request_id}
+                    onClick={() => void toggle(row)}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-semibold text-swag-navy disabled:opacity-60"
+                  >
+                    {row.dismissed ? (
+                      <RotateCcw className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                    {row.dismissed ? "Undo" : "Pass"}
+                  </button>
                 </div>
-                {row.dismissed && (
-                  <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
-                    Passed
-                  </span>
-                )}
-              </div>
-              <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-swag-navy">
-                {row.private_explanation || "No additional details were provided."}
-              </p>
-              <div className="mt-3">
-                <RequestDateBadge date={row.preferred_date} periods={row.preferred_time} />
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Submitted {format(row.submitted_at)}
-              </p>
-              <div className="mt-5 flex gap-2">
-                <button
-                  disabled={busy === row.request_id}
-                  onClick={() => void accept(row.request_id)}
-                  className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                >
-                  Accept
-                </button>
-                <button
-                  disabled={busy === row.request_id}
-                  onClick={() => void toggle(row)}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-semibold text-swag-navy disabled:opacity-60"
-                >
-                  {row.dismissed ? (
-                    <RotateCcw className="h-4 w-4" />
-                  ) : (
-                    <EyeOff className="h-4 w-4" />
-                  )}
-                  {row.dismissed ? "Undo" : "Pass"}
-                </button>
-              </div>
-            </article>
+              }
+              extra={
+                expanded === row.request_id && (
+                  <div id={`request-details-${row.request_id}`} className="text-sm">
+                    <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                      {row.category}
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap break-words leading-relaxed text-swag-navy">
+                      {row.private_explanation || "No additional details were provided."}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Submitted {format(row.submitted_at)}
+                    </p>
+                  </div>
+                )
+              }
+            />
           ))}
-        </div>
+        </RequestList>
       )}
     </>
   );
 }
 
 export function MyCases({ role }: { role: PeerRole }) {
+  const { profile } = useAuth();
   const [rows, setRows] = useState<CaseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const load = useCallback(async () => {
-    setLoading(true);
     const { data, error: rpcError } = await getSupabaseClient().rpc("list_my_peer_cases", {
       p_page_offset: 0,
       p_page_size: 40,
@@ -367,37 +386,51 @@ export function MyCases({ role }: { role: PeerRole }) {
       ) : error ? (
         <PageState tone="pink">Your cases could not be loaded.</PageState>
       ) : rows.length === 0 ? (
-        <PageState tone="green">You do not have any assigned cases yet.</PageState>
+        <PageState tone="green">No requests to show.</PageState>
       ) : (
-        <div className="grid gap-3">
+        <RequestList>
           {rows.map((row) => (
-            <Link
+            <RequestListRow
               key={row.request_id}
-              to={`${base}/cases/${row.request_id}` as never}
-              className="paper-card grid gap-3 border-swag-blue/30 p-5 hover:-translate-y-0.5 sm:grid-cols-[1fr_auto] sm:items-center"
-            >
-              <div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-swag-blue/10 px-2.5 py-1 text-xs font-semibold capitalize text-swag-blue">
-                    {row.status === "accepted" && row.session_id
-                      ? "confirmed"
-                      : row.status.replace("_", " ")}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{row.category}</span>
-                </div>
-                <h2 className="mt-2 font-bold text-swag-navy">
-                  {row.status === "escalated" ? "Escalated handover" : row.student_name}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {row.session_start
-                    ? format(row.session_start)
-                    : `${row.preferred_date} · ${row.preferred_time}`}
-                </p>
-              </div>
-              <span className="text-sm font-semibold text-swag-blue">Open case →</span>
-            </Link>
+              student={
+                <>
+                  <h2 className="font-bold text-swag-navy">
+                    {row.status === "escalated" ? "Escalated handover" : row.student_name}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">{row.year_group}</p>
+                </>
+              }
+              date={
+                row.session_start ? (
+                  format(row.session_start)
+                ) : (
+                  <RequestDateBadge
+                    date={row.preferred_date}
+                    periods={allowedPeriods(row.preferred_periods)}
+                  />
+                )
+              }
+              supporter={
+                <>
+                  <p className="font-semibold">{profile?.full_name || "Assigned to you"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {role === "peer_mentor" ? "Peer Mentor" : "SWAG Member"}
+                    {profile?.year_group ? ` · ${profile.year_group}` : ""}
+                  </p>
+                </>
+              }
+              status={<RequestStatus>{statusLabel(row.status)}</RequestStatus>}
+              actions={
+                <Link
+                  to={`${base}/cases/${row.request_id}` as never}
+                  className="inline-flex min-h-11 items-center font-semibold text-swag-blue underline"
+                >
+                  View details
+                </Link>
+              }
+            />
           ))}
-        </div>
+        </RequestList>
       )}
     </>
   );
@@ -412,7 +445,6 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
   const [confirmationOptions, setConfirmationOptions] = useState<PreviewRow[] | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("");
   const load = useCallback(async () => {
-    setLoading(true);
     const { data, error: rpcError } = await getSupabaseClient().rpc("get_my_peer_case_detail", {
       p_request_id: requestId,
     });
@@ -431,7 +463,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
         ? "This case could not be loaded."
         : found
           ? null
-          : "This case is no longer available to your account.",
+          : "This request is no longer available.",
     );
     setLoading(false);
   }, [requestId]);
@@ -590,7 +622,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
                   ? "Assigned · not yet confirmed"
                   : row.status.replaceAll("_", " "),
               ],
-              ["Requested date", row.preferred_date],
+              ["Requested date", requestedDateLabel(row.preferred_date)],
               ["Allowed periods", row.preferred_time],
               ["Assignment", "Assigned to you"],
             ].map(([label, value]) => (
@@ -618,7 +650,7 @@ export function CaseDetail({ role, requestId }: { role: PeerRole; requestId: str
               <div>
                 <dt className="text-muted-foreground">Requested availability</dt>
                 <dd className="font-semibold text-swag-navy">
-                  {row.preferred_date} · {row.preferred_time}
+                  {requestedDateLabel(row.preferred_date)} · {allowedPeriods(row.preferred_periods)}
                 </dd>
               </div>
             </dl>
@@ -909,14 +941,15 @@ export function EscalationDetailPage({
 }) {
   const [row, setRow] = useState<EscalationDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    void getSupabaseClient()
+  const load = useCallback(async () => {
+    await getSupabaseClient()
       .rpc("get_peer_escalation", { p_request_id: requestId })
       .then(({ data }) => {
         setRow(data?.[0] ?? null);
         setLoading(false);
       });
   }, [requestId]);
+  useRequestRefresh(load);
   const back = role === "teacher" ? "/teacher/escalations" : "/swag/escalations";
   if (loading) return <PageState>Loading escalation…</PageState>;
   if (!row)

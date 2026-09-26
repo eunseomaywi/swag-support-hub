@@ -39,31 +39,33 @@ export function AssignmentEmailStatus({ requestId }: { requestId: string }) {
   }, [load, processing]);
   if (!status && !unavailable) return null;
   const label = unavailable
-    ? "이메일 상태 확인 불가"
+    ? "Email status unavailable"
     : status?.status === "provider-accepted"
-      ? "발송 요청 수락 · 수신함 도착은 확인되지 않음"
+      ? "Email request accepted · Inbox delivery is not confirmed"
       : status?.status === "failed"
-        ? "이메일 발송 실패"
+        ? "Email failed"
         : status?.status === "needs-review"
-          ? "이메일 발송 확인 필요 · 중복 방지를 위해 자동 재시도 중지"
+          ? "Email needs review · Automatic retries stopped to prevent duplicates"
           : status?.status === "superseded"
-            ? "이메일 발송 생략 · 요청 상태 변경"
-            : "이메일 처리 중";
+            ? "Email processing stopped · Request state changed"
+            : "Email processing";
   return (
     <section
       className="mt-4 rounded-xl border border-swag-blue/25 p-4 text-sm"
       aria-label="Assignment email status"
     >
-      <p role="status">배정 완료 / {label}</p>
+      <p role="status">Assignment complete / {label}</p>
       {status?.last_error_code?.startsWith("configuration_") && (
-        <p className="mt-1 text-muted-foreground">Resend 발신 설정을 확인해야 합니다.</p>
+        <p className="mt-1 text-muted-foreground">
+          The Resend sender configuration needs attention.
+        </p>
       )}
       <button className="mt-2 min-h-11 underline" onClick={() => void load()}>
-        이메일 상태 새로고침
+        Refresh email status
       </button>
       {status?.status === "failed" && status.attempts < 5 && (
         <button className="ml-4 min-h-11 underline" onClick={() => void load(status.event_id)}>
-          동일 알림 재시도
+          Retry this notification
         </button>
       )}
     </section>

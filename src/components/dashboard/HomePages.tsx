@@ -14,6 +14,7 @@ import { DashboardPageHeading, PageState } from "@/components/dashboard/Dashboar
 import { useAuth } from "@/hooks/useAuth";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { Database } from "@/types/database";
+import { useRequestRefresh } from "@/hooks/useRequestRefresh";
 
 type TeacherCounts =
   Database["public"]["Functions"]["get_teacher_peer_support_counts"]["Returns"][number];
@@ -34,7 +35,6 @@ export function StaffHome({ role }: { role: "swag_member" | "teacher" }) {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
-    setLoading(true);
     const client = getSupabaseClient();
     const [pending, reviewing, peerResult] = await Promise.all([
       client.from("concerns").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -55,9 +55,7 @@ export function StaffHome({ role }: { role: "swag_member" | "teacher" }) {
       );
     setLoading(false);
   }, [role]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useRequestRefresh(load);
   const base = role === "teacher" ? "/teacher" : "/swag";
   return (
     <>

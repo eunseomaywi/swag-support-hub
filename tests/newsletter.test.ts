@@ -12,7 +12,7 @@ test("newsletter source order, uncorrected copy, labels, contact and actual text
     newsletters.map((n) => n.id),
     ["peer-mentoring", "student-voice", "wellbeing-tips"],
   );
-  assert.equal(newsletters[0]?.sourceLabel, "Damian - peer mentor advertisement");
+  assert.equal(newsletters[0]?.sourceLabel, undefined);
   assert.match(newsletters[0]!.paragraphs[0]!, /cound not tell everything\./);
   assert.match(newsletters[0]!.paragraphs[1]!, /They will found out/);
   assert.equal(newsletters[0]?.contactText, "📩 EmailMs.Mcgibbon! (kmcgibbon@nlcsjeju.kr)");
