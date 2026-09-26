@@ -110,3 +110,38 @@ outbox/schema. Existing assignment RPC signatures and confirmation queue remain 
 Do not reset the production DB, delete events, or rewrite pushed Git history. If assignment
 sending must stop, remove the assignment sender setting in Supabase; Gmail confirmation
 settings must remain intact. Correct schema problems with a new forward migration.
+
+## Actual release record — 26 September 2026
+
+- Application source: local commit `4b82618c240c3d064e25c2615704ac1b58d7a1d7`
+  (includes implementation commit `3d299b2`). Built in a clean, detached worktree so the
+  untracked original artwork directory was not included in the deployed artifact.
+- Applied remote migration: `20260926090000_teacher_assignment_email.sql`.
+  Remote schema lint reported no errors. No historical assignment events were created
+  (outbox count was zero at verification); anonymous/authenticated dispatcher RPC access
+  remains denied.
+- Supabase functions: `dispatch-assignment-email` ACTIVE version 1 and
+  `dispatch-confirmation-email` ACTIVE version 11, both with JWT verification enabled.
+- Existing Worker deployed with `--keep-vars`; version
+  `496e786a-9751-4a62-85a8-fcfc2c7b1fa8`, tag `4b82618`, serving 100% of traffic.
+  A real `*/5 * * * *` scheduled event was observed with outcome `ok`, no exceptions
+  and no error logs. This proves scheduler execution, not email provider acceptance.
+- Public production URL: https://swag-support-hub.mymaywi.workers.dev . HTTP checks passed
+  for `/`, `/activities`, newsletter direct access, `/login` and `/form/booking`.
+  All three specified image URLs returned actual PNG bytes and `image/png`, not an HTML fallback.
+- `SWAG_BROWSER_ORIGIN=https://swag-support-hub.mymaywi.workers.dev node --import tsx scripts/browser-newsletter.mjs`
+  passed at 375, 768 and 1440px: complete newsletter HTML text, decoded artwork, navigation,
+  Escape/focus return, history/reload, existing activities and public routes. Runtime exceptions,
+  console errors and hydration errors were all zero. Authenticated production screens were
+  not tested; authenticated role checks used the isolated local fixtures described above.
+- No real recipient received a test email. Resend API acceptance and inbox delivery remain
+  unverified. `RESEND_API_KEY` exists, but its validity is unverified;
+  `RESEND_FROM_EMAIL` is still missing from Supabase Edge Functions Secrets. An authorized
+  verified-domain sender must be provided there before assignment email can send.
+- GitHub push failed with HTTP 403 using both the existing credential helper and the GitHub
+  CLI credential helper. The account's repository API reports push permission, so the exact
+  credential restriction is not established. No SSH agent identity was available. Remote
+  `main` remained `1445770f7d1a018356aea35b3022c60e12c804b8`; the deployed source is preserved
+  in local commits. Restore an authorized GitHub credential with repository Contents write
+  access, then use a normal `git push origin main` (no force push). Production is currently
+  ahead of GitHub. Subsequent verification-only commits do not change the deployed application.

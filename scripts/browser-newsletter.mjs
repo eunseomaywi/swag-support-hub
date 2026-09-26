@@ -6,7 +6,6 @@ import { newsletters } from "../src/content/newsletters.ts";
 import { renderAssignmentEmail } from "../supabase/functions/_shared/assignment-email.ts";
 
 const origin = process.env.SWAG_BROWSER_ORIGIN || "http://127.0.0.1:8080";
-const development = origin.startsWith("http://127.0.0.1:8080");
 const expectNewsletter = process.env.SWAG_EXPECT_NEWSLETTER !== "false";
 const port = 9600 + Math.floor(Math.random() * 200);
 const chrome = spawn(
@@ -45,6 +44,8 @@ try {
   let id = 0;
   const pending = new Map();
   const exceptions = [];
+  let consoleErrorCount = 0;
+  let hydrationErrorCount = 0;
   ws.on("message", (raw) => {
     const m = JSON.parse(String(raw));
     if (m.id) {
@@ -55,6 +56,17 @@ try {
       }
     }
     if (m.method === "Runtime.exceptionThrown") exceptions.push(m.params.exceptionDetails.text);
+    if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") {
+      consoleErrorCount++;
+      if (
+        m.params.args.some((arg) =>
+          /hydration|hydrated|server rendered|Minified React/i.test(
+            arg.value || arg.description || "",
+          ),
+        )
+      )
+        hydrationErrorCount++;
+    }
   });
   const call = (method, params = {}) =>
     new Promise((resolve, reject) => {
@@ -101,7 +113,7 @@ try {
       assert.equal(await evaluate("document.querySelectorAll('[data-activity-card]').length"), 6);
       for (const article of newsletters) {
         const image = await evaluate(
-          `(()=>{const img=document.querySelector('[data-activity-card="${article.id}"] img');return {complete:img?.complete,width:img?.naturalWidth,height:img?.naturalHeight,fit:img?getComputedStyle(img).objectFit:null};})()`,
+          `(async()=>{const img=document.querySelector('[data-activity-card="${article.id}"] img');img?.scrollIntoView();await img?.decode();return {complete:img?.complete,width:img?.naturalWidth,height:img?.naturalHeight,fit:img?getComputedStyle(img).objectFit:null};})()`,
         );
         assert.deepEqual(image, {
           complete: true,
@@ -228,6 +240,7 @@ try {
     Buffer.from(email.data, "base64"),
   );
   assert.deepEqual(exceptions, []);
+  assert.equal(hydrationErrorCount, 0, "No hydration errors");
   console.log(
     JSON.stringify({
       origin,
@@ -239,6 +252,8 @@ try {
       protectedRoutes: "unauthenticated redirect only",
       emailPreview: "synthetic fixture",
       exceptions: 0,
+      consoleErrorCount,
+      hydrationErrorCount,
     }),
   );
 } finally {
