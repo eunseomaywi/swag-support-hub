@@ -32,9 +32,15 @@ The existing Worker also requires these encrypted runtime secrets:
 
 - `PEER_INTAKE_GATEWAY_SECRET`
 - `TURNSTILE_SECRET`
-- `TURNSTILE_HOSTNAMES`
 - `EMAIL_DISPATCH_SECRET`
 - `STUDENT_LINK_SECRET`
+
+The Worker performs Turnstile Siteverify on every booking POST and accepts only the
+`peer_support_intake` action with a returned hostname of `nlcsswag.com` or
+`swag-support-hub.mymaywi.workers.dev`. These are maintained as an explicit source allowlist,
+not a runtime variable. Tokens remain subject to Cloudflare's five-minute expiry and single-use
+rules. The browser request origin is separately restricted to the matching HTTPS origin for
+either production hostname.
 
 The Worker scheduler additionally requires these server-only values before `EMAIL_MODE=live` is
 safe:

@@ -14,7 +14,6 @@ type WorkerEnv = {
   PEER_INTAKE_ENABLED?: string;
   PEER_INTAKE_GATEWAY_SECRET?: string;
   TURNSTILE_SECRET?: string;
-  TURNSTILE_HOSTNAMES?: string;
   EMAIL_MODE?: string;
   EMAIL_EDGE_FUNCTION_ENABLED?: string;
   EMAIL_FROM?: string;
@@ -44,6 +43,11 @@ const PRIVATE_HEADERS = {
 };
 const PERIODS = new Set(["break", "lunch_1", "lunch_2"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TRUSTED_ORIGINS = new Set([
+  "https://nlcsswag.com",
+  "https://swag-support-hub.mymaywi.workers.dev",
+]);
+const TURNSTILE_HOSTNAMES = new Set(["nlcsswag.com", "swag-support-hub.mymaywi.workers.dev"]);
 
 function envValue(env: WorkerEnv, name: keyof WorkerEnv): string | undefined {
   const runtime = env[name];
@@ -67,10 +71,21 @@ function textField(value: unknown, maximum: number): string | null {
   return typeof value === "string" && value.length <= maximum ? value : null;
 }
 function allowedOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return request.headers.get("sec-fetch-site") !== "cross-site";
+  const origin = request.headers.get("origin") || request.headers.get("referer");
+  if (!origin || request.headers.get("sec-fetch-site") === "cross-site") return false;
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    const source = new URL(origin);
+    const target = new URL(request.url);
+    const localDevelopmentOrigin =
+      target.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname);
+    return (
+      source.origin === target.origin &&
+      (localDevelopmentOrigin ||
+        (TRUSTED_ORIGINS.has(source.origin) && source.protocol === "https:")) &&
+      !source.username &&
+      !source.password
+    );
   } catch {
     return false;
   }
@@ -123,7 +138,6 @@ async function verifyTurnstile(
   token: string,
   request: Request,
   secret: string,
-  allowedHostnames: string,
 ): Promise<boolean> {
   const isTestSecret = secret === "1x0000000000000000000000000000000AA";
   if (isTestSecret && !["localhost", "127.0.0.1", "[::1]"].includes(new URL(request.url).hostname))
@@ -144,15 +158,11 @@ async function verifyTurnstile(
     hostname?: string;
   };
   if (isTestSecret) return result.success === true;
-  const hosts = allowedHostnames
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
   return (
     result.success === true &&
     result.action === "peer_support_intake" &&
     typeof result.hostname === "string" &&
-    hosts.includes(result.hostname)
+    TURNSTILE_HOSTNAMES.has(result.hostname)
   );
 }
 
@@ -211,8 +221,7 @@ async function handlePeerIntake(request: Request, env: WorkerEnv): Promise<Respo
     return jsonPrivate({ error: "Request origin was not accepted." }, 403);
   const gatewaySecret = envValue(env, "PEER_INTAKE_GATEWAY_SECRET");
   const turnstileSecret = envValue(env, "TURNSTILE_SECRET");
-  const allowedHostnames = envValue(env, "TURNSTILE_HOSTNAMES");
-  if (!gatewaySecret || !turnstileSecret || !allowedHostnames || !supabaseConfig())
+  if (!gatewaySecret || !turnstileSecret || !supabaseConfig())
     return jsonPrivate({ error: "Peer Support intake is not available yet." }, 503);
   let body: PeerIntakeBody;
   try {
@@ -220,10 +229,10 @@ async function handlePeerIntake(request: Request, env: WorkerEnv): Promise<Respo
   } catch {
     return jsonPrivate({ error: "Please check the form and try again." }, 400);
   }
-  const turnstileToken = textField(body.turnstileToken, 4096);
+  const turnstileToken = textField(body.turnstileToken, 2048);
   if (!turnstileToken) return jsonPrivate({ error: "Please complete the security check." }, 400);
   try {
-    if (!(await verifyTurnstile(turnstileToken, request, turnstileSecret, allowedHostnames)))
+    if (!(await verifyTurnstile(turnstileToken, request, turnstileSecret)))
       return jsonPrivate({ error: "The security check expired. Please try again." }, 403);
   } catch {
     return jsonPrivate(

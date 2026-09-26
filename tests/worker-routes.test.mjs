@@ -11,14 +11,19 @@ const env = {
   PEER_INTAKE_ENABLED: "true",
   PEER_INTAKE_GATEWAY_SECRET: "test-gateway",
   TURNSTILE_SECRET: "production-placeholder",
-  TURNSTILE_HOSTNAMES: new URL(origin).hostname,
 };
-const request = (path, body) =>
-  new Request(`${origin}${path}`, {
+const requestAt = (base, path, body, headers = {}) =>
+  new Request(`${base}${path}`, {
     method: "POST",
-    headers: { origin, authorization: "Bearer test", "content-type": "application/json" },
+    headers: {
+      origin: base,
+      authorization: "Bearer test",
+      "content-type": "application/json",
+      ...headers,
+    },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+const request = (path, body) => requestAt(origin, path, body);
 
 test("Teacher assignment validates session, forwards only IDs, and survives provider failure", async (t) => {
   let role = "peer_mentor",
@@ -91,23 +96,90 @@ test("generated Nitro app: actual request context, missing context, and dispatch
   assert.equal(dispatches, 6);
 });
 
-test("production intake fails closed for missing, dummy, invalid action and foreign hostname", async (t) => {
+test("production intake verifies Turnstile hostnames and accepts both trusted production origins", async (t) => {
   let result = { success: false };
   let calls = 0;
   t.mock.method(globalThis, "fetch", async (url) => {
-    assert.equal(String(url), "https://challenges.cloudflare.com/turnstile/v0/siteverify");
     calls++;
-    return Response.json(result);
+    if (String(url).endsWith("/siteverify")) {
+      assert.equal(String(url), "https://challenges.cloudflare.com/turnstile/v0/siteverify");
+      return Response.json(result);
+    }
+    assert.match(String(url), /\/rest\/v1\/rpc\/submit_peer_support_request$/);
+    return Response.json([
+      {
+        request_id: "92000000-0000-4000-8000-000000000001",
+        management_token: "synthetic-management-token",
+        expires_at: "2026-12-24T00:00:00Z",
+      },
+    ]);
   });
-  const submit = (token) =>
-    app.fetch(request("/api/peer-support/submit", { turnstileToken: token }), env);
-  assert.equal((await submit("")).status, 400);
+  const fields = {
+    submissionKey: "92000000-0000-4000-8000-000000000002",
+    studentName: "Synthetic Test",
+    yearGroup: "Year 9",
+    contactEmail: "test@example.invalid",
+    category: "Wellbeing",
+    preferredDate: "2026-12-24",
+    preferredPeriods: ["lunch_1"],
+    privateExplanation: "Isolated automated fixture.",
+  };
+  const submit = (base, token) =>
+    app.fetch(requestAt(base, "/api/peer-support/submit", { ...fields, turnstileToken: token }), env);
+  const submitOnOldOrigin = (token) => submit(origin, token);
+  assert.equal((await submitOnOldOrigin("")).status, 400);
   assert.equal(calls, 0);
-  assert.equal((await submit("XXXX.DUMMY.TOKEN.XXXX")).status, 403);
+  assert.equal((await submitOnOldOrigin("XXXX.DUMMY.TOKEN.XXXX")).status, 403);
   result = { success: true, action: "wrong", hostname: new URL(origin).hostname };
-  assert.equal((await submit("bad-action")).status, 403);
+  assert.equal((await submitOnOldOrigin("bad-action")).status, 403);
   result = { success: true, action: "peer_support_intake", hostname: "localhost" };
-  assert.equal((await submit("foreign-host")).status, 403);
+  assert.equal((await submitOnOldOrigin("foreign-host")).status, 403);
+  for (const base of ["https://nlcsswag.com", origin]) {
+    result = { success: true, action: "peer_support_intake", hostname: new URL(base).hostname };
+    const response = await submit(base, `fresh-token-${new URL(base).hostname}`);
+    assert.equal(response.status, 201);
+    assert.equal((await response.json()).requestId, "92000000-0000-4000-8000-000000000001");
+  }
+  assert.equal(calls, 7);
+});
+
+test("booking intake rejects untrusted, mismatched, and missing browser origins before Siteverify", async (t) => {
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return Response.json({
+      success: true,
+      action: "peer_support_intake",
+      hostname: "nlcsswag.com",
+    });
+  });
+  const path = "/api/peer-support/submit";
+  assert.equal(
+    (
+      await app.fetch(
+        requestAt("https://nlcsswag.com", path, { turnstileToken: "x" }, {
+          origin: "https://evil.example",
+        }),
+        env,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (await app.fetch(new Request(`${origin}${path}`, { method: "POST", body: "{}" }), env)).status,
+    403,
+  );
+  assert.equal(calls, 0);
+  const refererOnly = requestAt(
+    "https://nlcsswag.com",
+    path,
+    { turnstileToken: "x" },
+    { origin: "", referer: "https://nlcsswag.com/form/booking" },
+  );
+  assert.equal((await app.fetch(refererOnly, env)).status, 400);
+  const localDevelopment = requestAt("http://localhost:5173", path, { turnstileToken: "x" });
+  assert.equal((await app.fetch(localDevelopment, env)).status, 400);
+  assert.equal(calls, 2);
 });
 
 test("production build refuses official Turnstile dummy sitekeys", () => {

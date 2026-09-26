@@ -150,6 +150,7 @@ function BookingForm() {
       setSubmitError(
         "We couldn't submit your request. Check the form and security check, then try again.",
       );
+      setTurnstileToken(null);
       setTurnstileReset((value) => value + 1);
     } finally {
       submittingRef.current = false;
