@@ -10,7 +10,8 @@ export const Route = createFileRoute("/members")({
       { title: "Meet the SWAG Members" },
       {
         name: "description",
-        content: "The students behind SWAG — our welfare awareness group members and their roles.",
+        content:
+          "Meet the students who help make SWAG a welcoming, supportive part of school life.",
       },
       { property: "og:title", content: "Meet the SWAG Members" },
       { property: "og:description", content: "The students behind SWAG and their roles." },
@@ -24,7 +25,7 @@ function Members() {
   return (
     <PageSection
       title="Meet the SWAG Members"
-      intro="Meet the students who help make SWAG a welcoming, supportive part of school life. Profiles will appear here once they are approved for publication."
+      intro="Meet the students who help make SWAG a welcoming, supportive part of school life."
     >
       <MemberGrid members={sortedPublicMembers} />
     </PageSection>
