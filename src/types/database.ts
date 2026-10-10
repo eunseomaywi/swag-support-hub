@@ -28,6 +28,139 @@ export type Database = {
   };
   public: {
     Tables: {
+      charter_moderation_audit: {
+        Row: {
+          actor_id: string;
+          created_at: string;
+          from_status: string;
+          id: number;
+          signature_id: string;
+          to_status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor_id: string;
+          created_at?: string;
+          from_status: string;
+          id?: never;
+          signature_id: string;
+          to_status: string;
+        };
+        Update: {
+          actor_id?: string;
+          created_at?: string;
+          from_status?: string;
+          id?: never;
+          signature_id?: string;
+          to_status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "charter_moderation_audit_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "charter_moderation_audit_signature_id_fkey";
+            columns: ["signature_id"];
+            isOneToOne: false;
+            referencedRelation: "charter_signatures";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      charter_rate_limits: {
+        Row: {
+          bucket: string;
+          submissions: number;
+          window_started_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket: string;
+          submissions?: number;
+          window_started_at?: string;
+        };
+        Update: {
+          bucket?: string;
+          submissions?: number;
+          window_started_at?: string;
+        };
+        Relationships: [];
+      };
+      charter_settings: {
+        Row: {
+          auto_approve: boolean;
+          gateway_digest: string;
+          singleton: boolean;
+          submissions_enabled: boolean;
+        };
+        ComputedFields: never;
+        Insert: {
+          auto_approve?: boolean;
+          gateway_digest?: string;
+          singleton?: boolean;
+          submissions_enabled?: boolean;
+        };
+        Update: {
+          auto_approve?: boolean;
+          gateway_digest?: string;
+          singleton?: boolean;
+          submissions_enabled?: boolean;
+        };
+        Relationships: [];
+      };
+      charter_signatures: {
+        Row: {
+          charter_version: string;
+          client_submission_id: string;
+          created_at: string;
+          id: string;
+          point_count: number;
+          region_id: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: string;
+          strokes: NonNullable<Json>;
+        };
+        ComputedFields: never;
+        Insert: {
+          charter_version: string;
+          client_submission_id: string;
+          created_at?: string;
+          id?: string;
+          point_count: number;
+          region_id: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          strokes: NonNullable<Json>;
+        };
+        Update: {
+          charter_version?: string;
+          client_submission_id?: string;
+          created_at?: string;
+          id?: string;
+          point_count?: number;
+          region_id?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          strokes?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "charter_signatures_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
       concerns: {
         Row: {
           assigned_to: string | null;
@@ -883,6 +1016,42 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      charter_moderation_queue: {
+        Args: { p_before?: string; p_status?: string };
+        Returns: {
+          created_at: string;
+          id: string;
+          region_id: string;
+          status: string;
+          strokes: Json;
+        }[];
+      };
+      charter_public_manifest: {
+        Args: { p_per_region?: number };
+        Returns: {
+          created_at: string;
+          id: string;
+          region_id: string;
+        }[];
+      };
+      charter_validate_strokes: { Args: { p_strokes: Json }; Returns: number };
+      moderate_charter_signature: { Args: { p_id: string; p_status: string }; Returns: boolean };
+      submit_charter_signature: {
+        Args: {
+          p_burst_hash: string;
+          p_charter_version: string;
+          p_client_submission_id: string;
+          p_gateway_secret: string;
+          p_session_hash: string;
+          p_strokes: Json;
+        };
+        Returns: {
+          created_at: string;
+          id: string;
+          region_id: string;
+        }[];
+      };
+
       admin_set_staff_registration: {
         Args: {
           p_booking_enabled: boolean;

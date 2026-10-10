@@ -40,10 +40,12 @@ function loadTurnstile(): Promise<void> {
 
 export function TurnstileWidget({
   resetKey,
+  action = "peer_support_intake",
   onToken,
   onError,
 }: {
   resetKey: number;
+  action?: string;
   onToken: (token: string | null) => void;
   onError: () => void;
 }) {
@@ -63,7 +65,7 @@ export function TurnstileWidget({
         if (!active || !container.current || !window.turnstile) return;
         widgetId.current = window.turnstile.render(container.current, {
           sitekey: siteKey,
-          action: "peer_support_intake",
+          action,
           theme: "light",
           size: "flexible",
           callback: (token: string) => onToken(token),
@@ -80,7 +82,7 @@ export function TurnstileWidget({
       if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
       widgetId.current = null;
     };
-  }, [onError, onToken, siteKey]);
+  }, [onError, onToken, siteKey, action]);
 
   useEffect(() => {
     if (resetKey > 0 && widgetId.current && window.turnstile) {

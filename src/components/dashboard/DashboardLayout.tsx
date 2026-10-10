@@ -13,6 +13,7 @@ const PEER_NAV: DashboardNavItem[] = [
 
 const SWAG_NAV: DashboardNavItem[] = [
   { label: "Home", to: "/swag/dashboard" },
+  { label: "Charter", to: "/swag/charter" },
   { label: "Available Requests", to: "/swag/requests" },
   { label: "My Cases", to: "/swag/cases" },
   { label: "Concerns", to: "/swag/concerns" },
@@ -22,6 +23,7 @@ const SWAG_NAV: DashboardNavItem[] = [
 
 const TEACHER_NAV: DashboardNavItem[] = [
   { label: "Home", to: "/teacher/dashboard" },
+  { label: "Charter", to: "/teacher/charter" },
   { label: "Peer Support Overview", to: "/teacher/peer-support" },
   { label: "Concerns", to: "/teacher/concerns" },
   { label: "Escalations", to: "/teacher/escalations" },

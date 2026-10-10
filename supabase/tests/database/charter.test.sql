@@ -1,0 +1,75 @@
+begin;
+select no_plan();
+-- Preserve other local fixtures; assertions below address only this transaction.
+create temporary table charter_existing as select id from public.charter_signatures;
+grant select on charter_existing to anon,authenticated;
+insert into auth.users(id,email) values
+ ('ca100000-0000-4000-8000-000000000001','charter-teacher@example.invalid'),
+ ('ca100000-0000-4000-8000-000000000002','charter-swag@example.invalid'),
+ ('ca100000-0000-4000-8000-000000000003','charter-mentor@example.invalid'),
+ ('ca100000-0000-4000-8000-000000000004','charter-student@example.invalid');
+select public.admin_set_staff_registration('ca100000-0000-4000-8000-000000000001','teacher',true);
+select public.admin_set_staff_registration('ca100000-0000-4000-8000-000000000002','swag_member',true);
+select public.admin_set_staff_registration('ca100000-0000-4000-8000-000000000003','peer_mentor',true);
+update public.charter_settings set gateway_digest=extensions.digest('charter-test-only','sha256');
+set local role anon;
+select throws_ok($$select public.submit_charter_signature('bad',repeat('a',64),repeat('b',64),'ca200000-0000-4000-8000-000000000001','[[[0,0],[1,1]]]','2026-10-10')$$,'42501',null,'untrusted gateway denied');
+select lives_ok($$select public.submit_charter_signature('charter-test-only',repeat('a',64),repeat('b',64),'ca200000-0000-4000-8000-000000000001','[[[0,0],[1,1]]]','2026-10-10')$$,'trusted submission accepted');
+select lives_ok($$select public.submit_charter_signature('charter-test-only',repeat('a',64),repeat('b',64),'ca200000-0000-4000-8000-000000000001','[[[0,0],[1,1]]]','2026-10-10')$$,'retry accepted');
+select is((select count(id) from public.charter_signatures where id not in (select id from charter_existing)),0::bigint,'pending is private');
+select throws_ok($$select status from public.charter_signatures$$,'42501',null,'moderation metadata denied');
+select throws_ok($$insert into public.charter_signatures(client_submission_id,strokes,region_id,charter_version,point_count) values(gen_random_uuid(),'[[[0,0],[1,1]]]','red','2026-10-10',2)$$,'42501',null,'direct insert denied');
+select throws_ok($$update public.charter_signatures set strokes='[]'$$,'42501',null,'direct update denied');
+select throws_ok($$delete from public.charter_signatures$$,'42501',null,'direct delete denied');
+select throws_ok($$select * from public.charter_moderation_queue()$$,'42501',null,'anon queue denied');
+reset role;
+select is((select count(*) from public.charter_signatures where id not in (select id from charter_existing)),1::bigint,'idempotency prevents duplicate rows');
+select is((select status from public.charter_signatures where id not in (select id from charter_existing) limit 1),'pending','safe default pending');
+select ok((select region_id in ('orange','red','green','blue','navy','teal') from public.charter_signatures where id not in (select id from charter_existing) limit 1),'assigned region valid');
+select throws_ok($$select public.charter_validate_strokes('[[[0,0],[0.01,0.01]]]')$$,'22023',null,'short path rejected in database');
+select throws_ok($$select public.charter_validate_strokes('[[[0,0],[1,2]]]')$$,'22023',null,'out of range rejected in database');
+select throws_ok($$select public.charter_validate_strokes('[[[0,0],["html",1]]]')$$,'22023',null,'nonnumeric point rejected');
+select throws_ok($$select public.submit_charter_signature('charter-test-only',repeat('a',64),repeat('b',64),'ca200000-0000-4000-8000-000000000001','[[[0,0],[0.8,1]]]','2026-10-10')$$,'22023',null,'idempotency key cannot mutate strokes');
+update public.charter_settings set submissions_enabled=false;
+select throws_ok($$select public.submit_charter_signature('charter-test-only',repeat('a',64),repeat('b',64),gen_random_uuid(),'[[[0,0],[1,1]]]','2026-10-10')$$,'P0001',null,'disabled submissions rejected');
+update public.charter_settings set submissions_enabled=true;
+select set_config('charter.test_id',(select id::text from public.charter_signatures where id not in (select id from charter_existing) limit 1),true);
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"ca100000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select throws_ok($$select * from public.charter_moderation_queue()$$,'42501',null,'student queue denied');
+select throws_ok($$select public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'approved')$$,'42501',null,'student moderation denied');
+select set_config('request.jwt.claims','{"sub":"ca100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select throws_ok($$select * from public.charter_moderation_queue()$$,'42501',null,'peer mentor queue denied');
+select set_config('request.jwt.claims','{"sub":"ca100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select is((select count(*) from public.charter_moderation_queue() where id not in (select id from charter_existing)),1::bigint,'SWAG queue allowed');
+select ok(public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'approved'),'SWAG approve');
+select ok(public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'approved'),'approve idempotent');
+select throws_ok($$select public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'hidden')$$,'42501',null,'SWAG cannot hide');
+set local role anon;
+select is((select count(id) from public.charter_signatures where id not in (select id from charter_existing)),1::bigint,'anon sees approved');
+select is((select count(*) from public.charter_public_manifest() where id not in (select id from charter_existing)),1::bigint,'manifest sees approved');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"ca100000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select is((select count(*) from public.charter_moderation_queue('approved') where id not in (select id from charter_existing)),1::bigint,'teacher queue allowed');
+select ok(public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'hidden'),'teacher hide');
+select ok(public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'hidden'),'hide idempotent');
+select throws_ok($$update public.charter_moderation_audit set to_status='approved'$$,'42501',null,'audit append only for staff');
+set local role anon;
+select is((select count(id) from public.charter_signatures where id not in (select id from charter_existing)),0::bigint,'hidden private');
+select is((select count(*) from public.charter_public_manifest() where id not in (select id from charter_existing)),0::bigint,'hidden absent from manifest');
+reset role;
+select is((select count(*) from public.charter_moderation_audit where actor_id in ('ca100000-0000-4000-8000-000000000001','ca100000-0000-4000-8000-000000000002')),2::bigint,'one audit per real transition');
+insert into public.charter_signatures(client_submission_id,strokes,region_id,status,charter_version,point_count) values(gen_random_uuid(),'[[[0,0],[1,1]]]','blue','pending','2026-10-10',2);
+select set_config('charter.test_id',(select id::text from public.charter_signatures where status='pending' and id not in (select id from charter_existing) limit 1),true);
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"ca100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select ok(public.moderate_charter_signature(current_setting('charter.test_id')::uuid,'rejected'),'SWAG reject');
+set local role anon;
+select is((select count(id) from public.charter_signatures where id not in (select id from charter_existing)),0::bigint,'rejected private');
+reset role;
+-- School burst budget allows many anonymous sessions sharing the same coarse network bucket.
+do $$begin for i in 1..40 loop perform public.submit_charter_signature('charter-test-only',lpad(i::text,64,'0'),repeat('b',64),gen_random_uuid(),'[[[0,0],[1,1]]]','2026-10-10');end loop;end$$;
+select is((select count(*) from public.charter_signatures where status='pending' and id not in (select id from charter_existing)),40::bigint,'shared school IP permits separate sessions');
+select ok(not exists(select 1 from public.charter_signatures where region_id not in ('orange','red','green','blue','navy','teal')),'weighted allocation always valid');
+select * from finish();
+rollback;

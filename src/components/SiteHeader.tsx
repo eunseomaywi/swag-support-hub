@@ -5,7 +5,32 @@ import { publicNavigation } from "@/content/public-copy";
 import { cn } from "@/lib/utils";
 
 const linkClass =
-  "rounded-md px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-swag-navy data-[status=active]:text-swag-navy data-[status=active]:font-semibold data-[status=active]:border-b-2 data-[status=active]:border-swag-blue";
+  "whitespace-nowrap rounded-md px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-swag-navy data-[status=active]:text-swag-navy data-[status=active]:font-semibold data-[status=active]:border-b-2 data-[status=active]:border-swag-blue";
+
+function ExternalNavLink({
+  label,
+  href,
+  mobile = false,
+}: {
+  label: string;
+  href: string;
+  mobile?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={
+        mobile
+          ? "block border-b border-border/60 py-3 text-sm font-medium text-muted-foreground last:border-0"
+          : "whitespace-nowrap rounded-md border border-swag-blue/30 bg-swag-blue/5 px-3 py-2 text-sm font-semibold text-swag-navy transition-colors hover:border-swag-blue hover:bg-swag-blue/10"
+      }
+    >
+      {label}
+    </a>
+  );
+}
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -26,27 +51,31 @@ export function SiteHeader() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
-          {publicNavigation.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeOptions={{ exact: "exact" in item ? item.exact : false }}
-              className={cn(
-                linkClass,
-                "action" in item && item.action
-                  ? "border border-swag-blue/30 px-3 py-2 font-semibold text-swag-navy hover:border-swag-blue data-[status=active]:border-swag-blue data-[status=active]:bg-swag-blue/5"
-                  : "",
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-3 lg:flex" aria-label="Main">
+          {publicNavigation.map((item) =>
+            "external" in item ? (
+              <ExternalNavLink key={item.label} label={item.label} href={item.href} />
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeOptions={{ exact: "exact" in item ? item.exact : false }}
+                className={cn(
+                  linkClass,
+                  "action" in item && item.action
+                    ? "border border-swag-blue/50 bg-white px-3 py-2 font-semibold text-swag-navy hover:border-swag-blue data-[status=active]:border-swag-blue data-[status=active]:bg-swag-blue/5"
+                    : "",
+                )}
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
         </nav>
 
         <button
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-swag-navy md:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-swag-navy lg:hidden"
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -60,19 +89,23 @@ export function SiteHeader() {
         <nav
           id="mobile-nav"
           aria-label="Main mobile"
-          className="border-t border-border bg-background px-4 py-2 md:hidden"
+          className="border-t border-border bg-background px-4 py-2 lg:hidden"
         >
-          {publicNavigation.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeOptions={{ exact: "exact" in item ? item.exact : false }}
-              onClick={() => setOpen(false)}
-              className="block border-b border-border/60 py-3 text-sm font-medium text-muted-foreground last:border-0 data-[status=active]:font-semibold data-[status=active]:text-swag-navy"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {publicNavigation.map((item) =>
+            "external" in item ? (
+              <ExternalNavLink key={item.label} label={item.label} href={item.href} mobile />
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeOptions={{ exact: "exact" in item ? item.exact : false }}
+                onClick={() => setOpen(false)}
+                className="block border-b border-border/60 py-3 text-sm font-medium text-muted-foreground last:border-0 data-[status=active]:font-semibold data-[status=active]:text-swag-navy"
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
         </nav>
       )}
     </header>

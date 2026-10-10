@@ -6,8 +6,9 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -15,6 +16,20 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { trackPublicPath } from "@/lib/public-analytics";
+
+function PublicAnalytics() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const lastTrackedPath = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lastTrackedPath.current === pathname) return;
+    lastTrackedPath.current = pathname;
+    trackPublicPath(pathname);
+  }, [pathname]);
+
+  return null;
+}
 
 function NotFoundComponent() {
   return (
@@ -136,6 +151,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PublicAnalytics />
         <div className="flex min-h-dvh flex-col">
           <SiteHeader />
           <div className="flex-1">

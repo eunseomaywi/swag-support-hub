@@ -1,4 +1,5 @@
 import "./lib/error-capture";
+import { handleCharterRequest } from "./lib/charter/submission.server";
 
 import { Webhook } from "svix";
 import type { ServerRequest } from "srvx";
@@ -77,8 +78,7 @@ function allowedOrigin(request: Request): boolean {
     const source = new URL(origin);
     const target = new URL(request.url);
     const localDevelopmentOrigin =
-      target.protocol === "http:" &&
-      ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname);
+      target.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname);
     return (
       source.origin === target.origin &&
       (localDevelopmentOrigin ||
@@ -138,6 +138,7 @@ async function verifyTurnstile(
   token: string,
   request: Request,
   secret: string,
+  action = "peer_support_intake",
 ): Promise<boolean> {
   const isTestSecret = secret === "1x0000000000000000000000000000000AA";
   if (isTestSecret && !["localhost", "127.0.0.1", "[::1]"].includes(new URL(request.url).hostname))
@@ -160,7 +161,7 @@ async function verifyTurnstile(
   if (isTestSecret) return result.success === true;
   return (
     result.success === true &&
-    result.action === "peer_support_intake" &&
+    result.action === action &&
     typeof result.hostname === "string" &&
     TURNSTILE_HOSTNAMES.has(result.hostname)
   );
@@ -510,6 +511,19 @@ export default {
     const env = (request.runtime?.cloudflare?.env ?? rawEnv ?? {}) as WorkerEnv;
     try {
       const url = new URL(request.url);
+      if (url.pathname === "/api/charter/session" || url.pathname === "/api/charter/signatures") {
+        return await handleCharterRequest(request, {
+          secret: envValue(env, "PEER_INTAKE_GATEWAY_SECRET"),
+          originAllowed: allowedOrigin,
+          verifyTurnstile: async (token, req) => {
+            const secret = envValue(env, "TURNSTILE_SECRET");
+            return (
+              Boolean(secret) && (await verifyTurnstile(token, req, secret!, "charter_signing"))
+            );
+          },
+          rpc: supabaseRpc,
+        });
+      }
       if (url.pathname === "/api/peer-support/status") {
         if (request.method !== "GET")
           return new Response(null, { status: 405, headers: { ...PRIVATE_HEADERS, Allow: "GET" } });

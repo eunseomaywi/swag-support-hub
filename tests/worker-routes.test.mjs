@@ -125,7 +125,10 @@ test("production intake verifies Turnstile hostnames and accepts both trusted pr
     privateExplanation: "Isolated automated fixture.",
   };
   const submit = (base, token) =>
-    app.fetch(requestAt(base, "/api/peer-support/submit", { ...fields, turnstileToken: token }), env);
+    app.fetch(
+      requestAt(base, "/api/peer-support/submit", { ...fields, turnstileToken: token }),
+      env,
+    );
   const submitOnOldOrigin = (token) => submit(origin, token);
   assert.equal((await submitOnOldOrigin("")).status, 400);
   assert.equal(calls, 0);
@@ -157,9 +160,14 @@ test("booking intake rejects untrusted, mismatched, and missing browser origins 
   assert.equal(
     (
       await app.fetch(
-        requestAt("https://nlcsswag.com", path, { turnstileToken: "x" }, {
-          origin: "https://evil.example",
-        }),
+        requestAt(
+          "https://nlcsswag.com",
+          path,
+          { turnstileToken: "x" },
+          {
+            origin: "https://evil.example",
+          },
+        ),
         env,
       )
     ).status,
@@ -200,4 +208,67 @@ test("official test-secret mode cannot run on the public production hostname", a
     { ...env, TURNSTILE_SECRET: "1x0000000000000000000000000000000AA" },
   );
   assert.equal(response.status, 403);
+});
+
+test("Charter gateway checks action and hostname, keeps cookies private, and forwards only validated fields", async (t) => {
+  let result = { success: true, action: "peer_support_intake", hostname: "nlcsswag.com" };
+  let submissions = 0;
+  const base = "https://nlcsswag.com";
+  const path = "/api/charter/signatures";
+  const fields = {
+    client_submission_id: "ca200000-0000-4000-8000-000000000001",
+    charter_version: "2026-10-10",
+    consent: true,
+    strokes: [
+      [
+        [0.1, 0.1, 0.5],
+        [0.8, 0.8, 1],
+      ],
+    ],
+    turnstileToken: "test-token",
+    region_id: "red",
+    name: "must not be forwarded",
+  };
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (String(url).endsWith("/siteverify")) return Response.json(result);
+    assert.match(String(url), /\/rpc\/submit_charter_signature$/);
+    const body = JSON.parse(options.body);
+    assert.deepEqual(Object.keys(body).sort(), [
+      "p_burst_hash",
+      "p_charter_version",
+      "p_client_submission_id",
+      "p_gateway_secret",
+      "p_session_hash",
+      "p_strokes",
+    ]);
+    assert.match(body.p_session_hash, /^[0-9a-f]{64}$/);
+    assert.match(body.p_burst_hash, /^[0-9a-f]{64}$/);
+    submissions++;
+    return Response.json([
+      { id: fields.client_submission_id, region_id: "blue", created_at: "2026-10-10" },
+    ]);
+  });
+  const session = await app.fetch(requestAt(base, "/api/charter/session", {}), env);
+  assert.equal(session.status, 200);
+  assert.match(session.headers.get("set-cookie"), /HttpOnly; SameSite=Strict/);
+  const cookie = session.headers.get("set-cookie").split(";")[0];
+  const submit = () => app.fetch(requestAt(base, path, fields, { cookie }), env);
+  assert.equal((await submit()).status, 403);
+  result.action = "charter_signing";
+  result.hostname = "attacker.example";
+  assert.equal((await submit()).status, 403);
+  result.hostname = "nlcsswag.com";
+  const response = await submit();
+  assert.equal(response.status, 201);
+  assert.equal((await response.json()).region_id, "blue");
+  assert.equal(submissions, 1);
+  assert.equal(
+    (await app.fetch(requestAt(base, path, fields, { cookie: cookie + "tampered" }), env)).status,
+    403,
+  );
+  assert.equal(
+    (await app.fetch(requestAt(base, path, fields, { cookie, "content-type": "text/plain" }), env))
+      .status,
+    415,
+  );
 });

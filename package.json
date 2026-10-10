@@ -17,7 +17,10 @@
     "deploy": "npm run build && npx wrangler deploy",
     "cf-typegen": "npx wrangler types",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:charter": "node --import tsx --test tests/charter.test.ts",
+    "test:charter:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -78,6 +81,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^2.10.0",
+    "@playwright/test": "^1.64.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

@@ -5,7 +5,13 @@ export const publicNavigation = [
   { to: "/what-is-swag", label: "About SWAG" },
   { to: "/members", label: "Members" },
   { to: "/activities", label: "Activities" },
+  { to: "/charter", label: "Charter" },
   { to: "/peer-mentor", label: "Peer Support" },
+  {
+    href: "https://club.teentips.co.uk/home/pupils-home-universal/",
+    label: "Wellbeing Hub",
+    external: true,
+  },
   { to: "/form", label: "Get Support", action: true },
 ] as const;
 
