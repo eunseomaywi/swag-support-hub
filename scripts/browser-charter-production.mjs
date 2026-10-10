@@ -8,7 +8,7 @@ const browser = await chromium.launch({
   headless: !process.argv.includes("--headed"),
 });
 const errors = [];
-const report = { pages: [], viewports: [], submission: null, errors };
+const report = { api: [], pages: [], viewports: [], submission: null, errors };
 try {
   for (const viewport of [
     { width: 1440, height: 900 },
@@ -16,9 +16,37 @@ try {
   ]) {
     const context = await browser.newContext({ viewport });
     const page = await context.newPage();
+    if (viewport.width === 1440) {
+      const headers = { origin: "https://nlcsswag.com", "content-type": "application/json" };
+      const session = await page.request.post("https://nlcsswag.com/api/charter/session", {
+        headers,
+        data: {},
+      });
+      assert.equal(session.status(), 200);
+      assert.match(session.headers()["set-cookie"], /HttpOnly; SameSite=Strict/);
+      assert.match(session.headers()["set-cookie"], /Secure/);
+      report.api.push({ check: "signed anonymous session", status: 200 });
+      for (const [check, data, extraHeaders, expected] of [
+        ["malformed JSON", "{", {}, 400],
+        ["oversized body", "x".repeat(70000), {}, 413],
+        ["untrusted origin", "{}", { origin: "https://example.invalid" }, 403],
+        ["non JSON body", "{}", { "content-type": "text/plain" }, 415],
+      ]) {
+        const response = await page.request.post("https://nlcsswag.com/api/charter/signatures", {
+          headers: { ...headers, ...extraHeaders },
+          data,
+        });
+        assert.equal(response.status(), expected, check);
+        report.api.push({ check, status: response.status() });
+      }
+    }
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(msg.text());
+      if (msg.type() === "error")
+        errors.push({
+          message: msg.text(),
+          source: msg.location().url ? new URL(msg.location().url).origin : "unknown",
+        });
     });
     for (const path of [
       "/",
@@ -31,7 +59,7 @@ try {
     ]) {
       const response = await page.goto(`https://nlcsswag.com${path}`);
       assert.equal(response.status(), 200, path);
-      await expect(page.locator("header")).toBeVisible();
+      await expect(page.getByRole("banner")).toBeVisible();
       await expect(page.locator("footer")).toBeVisible();
       assert.ok(await page.locator("main").innerText(), path);
       report.pages.push({ path, viewport: viewport.width, status: response.status() });
@@ -55,6 +83,7 @@ try {
     }
     await page.getByRole("button", { name: "Replay logo", exact: true }).click();
     await expect(canvas).toHaveAttribute("data-animation-state", "idle", { timeout: 15_000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: `/private/tmp/charter-production-${viewport.width}.png`,
       fullPage: true,
@@ -84,7 +113,16 @@ try {
       .check();
     if (submitLive && viewport.width === 1440) {
       const submit = page.getByRole("button", { name: "Add my signature", exact: true });
-      await expect(submit).toBeEnabled({ timeout: 60_000 });
+      for (let attempt = 0; attempt < 10 && !(await submit.isEnabled()); attempt++) {
+        for (const frame of page.frames()) {
+          if (!frame.url().startsWith("https://challenges.cloudflare.com/")) continue;
+          const checkbox = frame.getByRole("checkbox").first();
+          if (await checkbox.isVisible()) await checkbox.click();
+        }
+        await page.waitForTimeout(1_000);
+      }
+      await page.screenshot({ path: "/private/tmp/charter-production-signing.png" });
+      await expect(submit).toBeEnabled({ timeout: 30_000 });
       const response = page.waitForResponse((res) => res.url().endsWith("/api/charter/signatures"));
       await submit.click();
       const result = await response;
@@ -99,7 +137,11 @@ try {
       await expect(canvas).toHaveAttribute("data-animation-state", "idle", { timeout: 10_000 });
       await page.reload();
       await expect(canvas).toHaveAttribute("data-animation-state", "idle", { timeout: 15_000 });
-    } else await page.keyboard.press("Escape");
+    } else {
+      await page.getByRole("heading", { name: "Leave your mark.", exact: true }).focus();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    }
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.getByRole("button", { name: "Replay logo", exact: true }).click();
     await expect(canvas).toHaveAttribute("data-animation-state", "idle");
